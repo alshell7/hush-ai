@@ -25,10 +25,10 @@ Both implement `hush_core::Enhancer`, the streaming interface that the live work
 ```mermaid
 flowchart LR
   A["Microphone<br/>input callback"] -->|bounded queue| B["Inference worker<br/>rate conversion · model · drift control"]
-  B -->|bounded queue| C{Output}
-  C -->|Hush AI Microphone| D["Feeder thread<br/>(2 ms, real-time priority)"]
-  C -->|Listen| E["Headphones<br/>output callback"]
-  D --> F["Driver ring buffer"]
+  B -->|bounded queue| C["Output callback or feeder<br/>(Live Translate tap)"]
+  C -->|clean voice, while translating| T["Translator thread<br/>Gemini Live over WebSocket"]
+  T -->|translated voice| C
+  C --> F["Hush AI Microphone"]
   F --> G["Zoom · Meet · Teams · …"]
 ```
 
@@ -39,8 +39,9 @@ flowchart LR
 | Input callback | Converts and down-mixes samples into a bounded queue | No allocation, lock or inference. A full queue drops samples and counts them |
 | Inference worker | Rate conversion, framing, model, output queue | Owns all model and filter state. DeepFilterNet 3 runs here, on this thread only |
 | Rayon workers | Parallel CPU kernels of RE-USE | **Automatic** (default) or a fixed count |
-| Output callback | Reads samples, fades gaps to silence | No allocation, lock or waiting |
-| Virtual microphone feeder | Moves output into the driver's ring buffer | Real-time priority; 2 ms period |
+| Output callback | Reads samples, fades gaps to silence, applies the Live Translate tap | No allocation, lock or waiting |
+| Virtual microphone feeder | Moves output into the driver's ring buffer (macOS) | Real-time priority; 2 ms period |
+| Translator | Only while Live Translate is on: sends 100 ms of 16 kHz voice to Gemini, plays its 24 kHz answer | Off the audio path; talks to the tap through two lock-free queues |
 
 ### Workers and priority
 
@@ -85,9 +86,16 @@ The worker counts frame time, peaks, drops and underruns with lock-free atomics.
 reads them 20 times per second, only while a window that shows them is visible. **Load** is
 the share of real time the worker needs for its frames: below 100% it keeps up.
 
-**Listen to yourself** sends the output to headphones instead of the Hush AI Microphone.
-The **Original / With Hush** switch plays the input delayed by the model delay, so both
-stay aligned and switching is seamless.
+### Live Translate tap
+
+Each live session creates a tap with two lock-free queues and shares one flag with the
+translator. While the flag is off, the tap does nothing. While it is on, the output callback
+pushes the clean voice into one queue and plays the translated voice from the other,
+silence when nothing has arrived yet. The translator thread resamples to 16 kHz, sends
+100 ms messages to `gemini-3.5-live-translate-preview` over the Live API WebSocket, decodes
+the 24 kHz answer and resamples it to the device rate. It keeps a session-resumption handle,
+so it continues on a new connection when Google rotates the old one (about every 10
+minutes), and reconnects with a new setup when the target language changes.
 
 ## App
 
@@ -102,7 +110,10 @@ flowchart TB
     MO["model.rs<br/>two models · download · SHA-256"]
     V["vmic.rs<br/>driver setup per system"]
     T["mictest.rs<br/>level meter · test recording"]
-    TR["tray.rs<br/>icon · menu · widget position"]
+    S["studio.rs<br/>decode · enhance · WAV"]
+    CA["calendar.rs<br/>iCal · repeats · auto on/off"]
+    TL["translate.rs<br/>Gemini Live Translate"]
+    TR["tray.rs<br/>icon · menu · widget"]
   end
   M <--> E
   W <--> E
@@ -123,6 +134,13 @@ flowchart TB
   DeepFilterNet repository at tag v0.5.6. RE-USE (54 MB) comes from the Hugging Face mirror, then
   NVIDIA's pinned revision. Settings from Hush AI 1.0 keep RE-USE; new installs start with
   DeepFilterNet 3.
+- **Studio** decodes files with Symphonia, mixes them to mono and converts them to 48 kHz
+  in a streaming pipeline, runs the chosen model off the audio path, and writes the original
+  and the result as WAV files into the app's cache folder for playback. Memory stays flat
+  for long files.
+- **Calendar** reads the iCal address every few minutes, expands repeating events (with
+  `rrule`), moved and cancelled occurrences, and finds call links. A 10-second tick turns
+  noise cancellation on before a call and pops up the widget.
 - **Updates** come from GitHub Releases. Each update is signed; the app checks the
   signature before it installs.
 - **Single instance.** A second start shows the running window.

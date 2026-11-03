@@ -37,20 +37,23 @@ from your voice while you talk**, and from recordings you already have.
 - **In Studio**, drop an audio or video file, or record yourself, and save a clean WAV.
 - **With Google Calendar**, Hush turns itself on a minute before each call and pops up with a
   Join button. No Google sign-in.
+- **With Live Translate** (Preview), you speak your language and the call hears you in
+  theirs, through Google's Gemini Live Translate and your own API key.
 
-No account. No cloud. No subscription. No minute limits. Your voice never leaves your computer.
+No account. No subscription. No minute limits. Noise cancellation never leaves your computer.
 
 ## Why Hush AI
 
 |  |  |
 | --- | --- |
-| 🔒 **On your computer** | Everything runs on your CPU. Hush sends no audio and no telemetry, and has no servers. |
-| 🪶 **Light** | The default engine, DeepFilterNet 3, needs about 6% of one CPU core. Your laptop stays cool and quiet. |
-| ⚡ **Real time** | 10–20 ms frames, about 60 ms from your microphone to your call. |
+| 🔒 **On your computer** | Noise cancellation and Studio run on your CPU. Hush sends no telemetry and has no servers. |
+| 🪶 **Light** | The default engine, DeepFilterNet 3, needs one thread: about 7% of a laptop core offline, 11–13% live. Your laptop stays cool and quiet. |
+| ⚡ **Real time** | 10–20 ms frames, about 60 ms before device buffers. |
 | 🎙️ **Works everywhere** | One virtual microphone for every app. A tray and menu bar widget to switch it on and off. |
 | 🎚️ **Two engines** | DeepFilterNet 3 (light, the default) or NVIDIA Real-time RE-USE (most natural at high settings). Switch any time. |
 | 📼 **Studio** | Clean up podcasts, voice notes, interviews and lectures. Drag and drop, compare before and after, save. |
 | 📅 **Meetings** | Google Calendar through its private iCal address. Hush is ready before your call is. |
+| 🌍 **Live Translate** | Preview. Pick "I speak" and "They hear" from 70+ languages; switch it in calls with Ctrl+Alt+T. The one feature that uses the cloud, and only while it is on. |
 | 🔓 **Open source** | Apache-2.0 app and engine. Read every line. |
 
 ## Hush AI, Krisp and Adobe Podcast
@@ -63,6 +66,7 @@ No account. No cloud. No subscription. No minute limits. Your voice never leaves
 | **Where your audio is processed** | Your computer | Your computer (noise cancellation) | Adobe's servers: you upload the file |
 | **Live calls in any app** | Yes | Yes | No |
 | **Clean up recordings** | Yes, on your computer | – | Yes, in the browser |
+| **Live voice translation** | Preview, through Google Gemini with your key | – | No |
 
 From the vendors' public pages ([krisp.ai/pricing](https://krisp.ai/pricing/),
 [podcast.adobe.com](https://podcast.adobe.com/en/plans)), November 2026; – means we did not
@@ -134,6 +138,21 @@ both waveforms, and lets you switch between the original and the clean version w
 plays. **Save clean WAV** writes a 48 kHz file wherever you like. Long files are fine: Hush
 reads and writes them in pieces, so memory stays flat.
 
+### Live Translate: be heard in their language
+
+1. On the **Live** tab, press **Add your Gemini API key**. Hush opens
+   [Google AI Studio](https://aistudio.google.com/apikey); press **Create API key** and copy
+   it. Back in Hush, the key is noticed, checked with Google and kept in Hush's settings
+   folder.
+2. Choose **I speak** and **They hear**; ⇄ swaps them.
+3. Turn on **Live Translate**. Your apps hear the translated voice through Hush AI
+   Microphone, and captions show what you said and what they hear.
+
+In a call, switch it from the tray widget, the tray menu (**Translate my voice**) or with
+**Ctrl + Alt + T** (**⌘ ⌥ T** on macOS). While it is on, your noise-cancelled voice goes to
+Google's `gemini-3.5-live-translate-preview` model; Google's terms and pricing apply to your
+key (there is a free tier). The translation follows you by a phrase or so.
+
 ### Meetings: Google Calendar without signing in
 
 Open the **Meetings** tab and press **Connect Google Calendar**:
@@ -162,6 +181,7 @@ flowchart LR
   engine --> vmic["Hush AI Microphone<br/>(virtual device)"]
   vmic --> apps["Zoom · Meet · Teams<br/>Slack · Discord · OBS · …"]
   file["📼 A recording"] --> studio["Studio<br/>same engine, off the audio path"] --> wav["Clean WAV"]
+  engine -.->|"Live Translate on"| gemini["Google Gemini<br/>Live Translate"] -.-> vmic
 ```
 
 - The **engine** (`crates/hush-core`) runs either model one frame at a time on the CPU:
@@ -187,12 +207,13 @@ the best.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | No noise removal | 1.97 | 0.921 | 8.4 dB | 2.70 | – |
 | RNNoise | 2.11 | 0.890 | 12.3 dB | 2.94 | 5% |
-| **Hush · DeepFilterNet 3** (default) | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
+| **Hush · DeepFilterNet 3** (default) | **3.10** | **0.945** | **19.0 dB** | 3.18 | 7% |
 | Hush · NVIDIA RE-USE, Light (16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
 | Hush · NVIDIA RE-USE, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
 
 - **Hush leads every metric.** DeepFilterNet 3 has the best PESQ, STOI and SI-SDR at about
-  6% of a core; RE-USE with 8 layers has the most natural sound by DNSMOS.
+  7% of a core; RE-USE with 8 layers has the most natural sound by DNSMOS. CPU figures are
+  rough: the laptop was doing other work.
 - **Why two engines:** DeepFilterNet 3 is light and accurate, so it is the default. RE-USE
   needs a faster CPU, for people who want its sound.
 - **Both are reproduced faithfully.** Hush's RE-USE matches NVIDIA's published PESQ (2.77
@@ -210,7 +231,7 @@ long runs.
 - [x] **Noise cancellation**: real time, on device, in every app
 - [x] **Studio**: clean up recordings on your computer
 - [x] **Meetings**: Google Calendar without signing in
-- [ ] **Voice translation**
+- [x] **Voice translation**: Live Translate (Preview), through Google Gemini
 - [ ] **Agent assist**
 - [ ] **Speech analytics**
 - [ ] **Voice security**
@@ -269,9 +290,10 @@ that model. See [License](#license).
 <details>
 <summary><b>Does my voice leave my computer?</b></summary>
 
-No. Hush AI connects to the internet only to download a model once, to check GitHub for
-updates (you can turn this off), and, if you connect it, to read your calendar's iCal
-address from Google.
+Not for noise cancellation or Studio: they run on your computer. Hush connects to the
+internet to download a model once, to check GitHub for updates (you can turn this off), to
+read your calendar's iCal address if you connect one, and, **only while Live Translate is
+on**, to send your voice to Google for translation.
 </details>
 
 <details>
@@ -326,8 +348,11 @@ All docs are also on the website at [alshell7.github.io/hush-ai/docs](https://al
 - Microsoft's [SysVAD sample](https://github.com/microsoft/Windows-driver-samples) (MS-PL)
   for the Windows driver, and Apple's Audio Server Plug-in design for macOS.
 - [VB-CABLE](https://vb-audio.com/Cable/) by VB-Audio, the free virtual cable Hush uses on Windows.
-- [Symphonia](https://github.com/pdeljanov/Symphonia) for reading audio files, and
-  [rrule](https://github.com/fmeringdal/rust-rrule) for repeating calendar events.
+- [Symphonia](https://github.com/pdeljanov/Symphonia) for reading audio files,
+  [rrule](https://github.com/fmeringdal/rust-rrule) for repeating calendar events, and
+  [tungstenite](https://github.com/snapview/tungstenite-rs) for the Gemini Live connection.
+- [Google Gemini 3.5 Live Translate](https://aistudio.google.com/docs/live-api/live-translate),
+  the cloud model behind Live Translate (with your own key).
 - App logos from [gilbarbara/logos](https://github.com/gilbarbara/logos) and
   [Simple Icons](https://simpleicons.org) (CC0). The names and logos belong to their owners.
 - [Tauri](https://tauri.app), [HeroUI](https://heroui.com), [Motion](https://motion.dev) and the Geist font.

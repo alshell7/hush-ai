@@ -55,3 +55,35 @@ VB-CABLE
 
 On Windows, Hush AI works with VB-CABLE by VB-Audio Software (https://vb-audio.com/Cable/),
 which the user installs separately. Hush AI does not include or distribute VB-CABLE.
+
+------------------------------------------------------------------------------------------
+App libraries for Studio, Meetings and Live Translate
+
+The desktop app uses, among others: Symphonia (audio decoding, MPL-2.0,
+https://github.com/pdeljanov/Symphonia), used unmodified as a library; hound (WAV, Apache-2.0);
+rrule and chrono-tz (repeating calendar events and time zones, MIT OR Apache-2.0); tungstenite
+(WebSocket, MIT OR Apache-2.0); base64 (MIT OR Apache-2.0). Their full license texts ship
+with their source on crates.io.
+
+------------------------------------------------------------------------------------------
+Meeting-app logos
+
+assets/apps holds the logos of Zoom, Google Meet, Microsoft Teams, Slack, Discord, WhatsApp,
+Telegram and Google Calendar from gilbarbara/logos (CC0-1.0), and of OBS Studio and Webex
+from Simple Icons (CC0-1.0). They are trademarks of their owners, shown only to say which
+apps work with Hush AI Microphone. See assets/apps/README.md.
+
+------------------------------------------------------------------------------------------
+Google Gemini Live Translate
+
+Live Translate sends the user's voice to Google's gemini-3.5-live-translate-preview model
+through the Gemini API, with the user's own API key, only while it is on. Google's terms
+and pricing apply (https://ai.google.dev/gemini-api/terms). Hush AI is not affiliated with
+or endorsed by Google.
+
+------------------------------------------------------------------------------------------
+Demo recordings
+
+site/public/samples/demos mixes speech from the VoiceBank-DEMAND / VCTK test set
+(Valentini-Botinhao et al., University of Edinburgh, CC BY 4.0) with CC0 noise from
+Freesound. Full credits: site/public/samples/demos/CREDITS.md.

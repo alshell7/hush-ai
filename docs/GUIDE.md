@@ -21,7 +21,7 @@ The warnings appear because the apps are not code-signed yet. They appear only o
 1. **Voice model.** Choose a model and download it. Hush checks the file before it uses it.
    - **Efficient** (DeepFilterNet 3, 8 MB, recommended): little CPU, MIT or Apache-2.0
      license, so you can use it at work too.
-   - **NVIDIA RE-USE** (54 MB): more CPU. Accept NVIDIA's noncommercial license first.
+   - **NVIDIA RE-USE** (54 MB): more CPU. Agree to its license terms first.
 2. **Microphone.** Choose your microphone and say something. The bar moves when Hush hears you.
 3. **Hush AI Microphone.**
    - **macOS:** press **Install**. macOS asks for your password once.
@@ -53,18 +53,19 @@ own list.
 
 ## Every day
 
-- **Tray or menu bar.** Click the mochi: turn noise cancellation on or off, change the
-  microphone or the RE-USE quality. Right-click for the menu.
+- **Tray or menu bar.** Click the mochi: turn noise cancellation or Live Translate on or
+  off, swap languages, change the microphone, or join your next meeting. Double-click opens
+  the window (Windows). Right-click for the menu.
 - **Closing the window** keeps Hush running in the tray. Use **Quit** to stop it. When Hush
   is not running, Hush AI Microphone is silent.
 - **Open at login** (Settings) starts Hush in the tray when you log in.
 
 ### Voice model
 
-| Model | Use it for | Cost | License |
-| --- | --- | --- | --- |
-| **Efficient** (DeepFilterNet 3) | Everything (48 kHz full band) | Lowest CPU, one thread | MIT or Apache-2.0 |
-| **NVIDIA RE-USE** | Light, Balanced or Studio, below | More CPU | Non-commercial use only |
+| Model | Use it for | Cost |
+| --- | --- | --- |
+| **Efficient** (DeepFilterNet 3) | Everything (48 kHz full band) | Lowest CPU, one thread |
+| **NVIDIA RE-USE** | Light, Balanced or Studio, below | More CPU |
 
 Switch on the main screen. Settings › Voice models downloads or removes each model. On the
 [VoiceBank-DEMAND test](COMPARISON.md), DeepFilterNet 3 scored higher than RE-USE Light on
@@ -81,11 +82,70 @@ every metric.
 The **Load** chip shows how much of real time the model needs. Below 100% it keeps up. If
 it stays high, choose Efficient, or Light with RE-USE.
 
-### Listen to yourself
+## Studio: clean up a recording
 
-Turn on **Listen to yourself** to hear Hush in your headphones and switch between
-**Original** and **With Hush**. While Listen is on, apps do not get your voice. Use
-headphones, or your speakers will echo.
+Open the **Studio** tab.
+
+1. Drop a file on the window, press **Choose a file**, or press **Record yourself** (up to
+   30 minutes, from the microphone chosen on the Live tab).
+2. Hush cleans it with your voice model. Long files are fine; the progress ring shows the
+   time left.
+3. Press play and switch between **Original** and **With Hush** while it plays (the **A**
+   key switches, **Space** plays).
+4. **Save clean WAV** writes a 48 kHz mono file. **Show in folder** opens where you saved it.
+
+Files: WAV, MP3, M4A/AAC, FLAC, OGG, AIFF, CAF, and the sound of MP4, MOV and MKV. Stereo
+is mixed to mono. Everything happens on your computer.
+
+## Meetings: Google Calendar
+
+Open the **Meetings** tab and press **Connect Google Calendar**.
+
+1. **Open settings** opens Google Calendar's settings in your browser.
+2. Under **Settings for my calendars**, pick your calendar, then **Integrate calendar**.
+3. Copy **Secret address in iCal format**.
+4. Come back to Hush. It notices the address on the clipboard, checks it with Google and
+   shows the calendar's name and the meetings it found. Press **Connect**.
+
+You can also paste the address into the field. Any calendar that publishes an iCal
+(`.ics`) address over HTTPS works the same way.
+
+| Setting | What it does |
+| --- | --- |
+| Check for changes every 5, 15, 30 or 60 min | How often Hush reads the calendar |
+| Turn on noise cancellation 1, 2 or 5 min before | For meetings with a Meet, Zoom, Teams, Webex, Slack or Discord link |
+| Turn it off after the call | Only if Hush turned it on, and you did not turn it off yourself |
+| Pop up with a Join button | The tray widget opens a minute before the call |
+
+**Join** opens the meeting's own link. **Disconnect** makes Hush forget the address. The
+address is a secret link to your calendar: Hush keeps it only in its settings folder and
+never writes it to logs. If it leaks, reset it in Google Calendar and connect again.
+
+## Live Translate (Preview)
+
+Speak your language and the call hears you in theirs, in a natural voice, through Hush AI
+Microphone. Hush uses Google's **Gemini 3.5 Live Translate** model with your own API key.
+
+1. On the Live tab, press **Add your Gemini API key**. Hush opens Google AI Studio.
+2. Press **Create API key** and copy it. Back in Hush, it is noticed, checked with Google and
+   kept in Hush's settings folder.
+3. Choose **I speak** and **They hear** (70+ languages). ⇄ swaps them.
+4. Turn on **Live Translate**. Captions show what you said and what they hear.
+
+During a call, use the switch in the tray widget, **Translate my voice** in the tray menu,
+or **Ctrl + Alt + T** (**⌘ ⌥ T** on macOS) in any app. Translation turns noise cancellation
+on too, and stops when you turn noise cancellation off.
+
+Good to know:
+
+- **It uses the internet.** While Live Translate is on, your noise-cancelled voice goes to
+  Google; everything else in Hush stays on your computer.
+- **It follows you by a phrase or so.** Gemini translates phrase by phrase, so the other side
+  hears you a moment after you speak.
+- **Cost:** Google offers a free tier; paid use is billed by Google to your key. Google's
+  terms apply to the audio you send.
+- If you already speak their language, Gemini repeats you in that language, so they always
+  hear you.
 
 ## Fix problems
 
@@ -97,6 +157,11 @@ headphones, or your speakers will echo.
 | Windows: Hush AI Microphone missing after a VB-CABLE update | Open Hush › Set up › **Rename** again. |
 | macOS: Hush AI Microphone missing | Settings › Hush AI Microphone, or run setup again (it restarts Core Audio). |
 | Delay is noticeable | Windows with VB-CABLE adds about 84 ms. In VB-CABLE's control panel, a smaller buffer lowers it. |
+| Studio: "Hush cannot read this file" | Convert it to WAV or MP3. Opus files (for example WhatsApp voice notes) are not supported yet. |
+| Meetings: "The calendar did not accept this address" | The secret address was reset. Copy it again from Google Calendar. |
+| Live Translate: "Google did not accept this API key" | Create a new key in Google AI Studio and add it again. |
+| Live Translate is on but they hear silence | Check that Hush is **On**, speak a full sentence and wait a moment. Gemini answers phrase by phrase. |
+| Ctrl + Alt + T does nothing | Another app uses the same shortcut. Use the switch in the widget instead. |
 
 ## Uninstall
 
@@ -110,6 +175,8 @@ headphones, or your speakers will echo.
 
 ## Privacy
 
-Hush processes audio only on your computer. It connects to the internet to download a
-model (Hugging Face, or GitHub as a fallback) and to check for updates (GitHub). It sends no audio, no usage data and
-no crash reports.
+Noise cancellation and Studio run only on your computer. Hush connects to the internet to
+download a model (Hugging Face, or the model's original source as a fallback), to check for
+updates (GitHub), to read your calendar's iCal address if you connect one (Google), and to
+send your voice to Google while **Live Translate** is on. It sends no usage data and no
+crash reports, and it has no servers of its own.

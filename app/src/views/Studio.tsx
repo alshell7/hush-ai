@@ -9,7 +9,8 @@ import { toast } from "../components/Toast";
 import { features, mediaUrl, useFeatures, type StudioResult } from "../lib/features";
 import { isTauri } from "../lib/ipc";
 
-const FORMATS = ["wav", "mp3", "m4a", "aac", "flac", "ogg", "oga", "opus", "mp4", "mov", "aif", "aiff", "caf", "mkv", "webm"];
+// What Symphonia decodes: no Opus yet.
+const FORMATS = ["wav", "mp3", "m4a", "aac", "flac", "ogg", "oga", "mp4", "mov", "aif", "aiff", "caf", "mkv"];
 
 function clock(seconds: number) {
   const s = Math.max(0, Math.floor(seconds));
