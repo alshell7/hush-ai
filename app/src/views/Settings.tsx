@@ -2,11 +2,11 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { DevicePicker, Segmented, Spinner, Tip, Toggle } from "../components/Controls";
-import { CloseIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
+import { CloseIcon, ExternalIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { ModelDownload } from "../components/ModelDownload";
 import { toast } from "../components/Toast";
-import { ENGINE_ORDER, ENGINES } from "../lib/engines";
+import { ENGINE_ORDER, ENGINES, LICENSE_URL } from "../lib/engines";
 import { api, formatBytes, isTauri, openUrl, type Engine } from "../lib/ipc";
 import { features, setFeatures, TRANSLATE_SHORTCUT, useFeatures } from "../lib/features";
 import { saveSettings, setStore, useApp } from "../lib/store";
@@ -201,12 +201,7 @@ function SettingsBody() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-0.5 text-[12.5px] leading-snug text-muted">
-                    {info?.installed ? `Installed · ${formatBytes(info.size)}` : "Not downloaded"} ·{" "}
-                    <a className="link" onClick={(e) => (e.preventDefault(), openUrl(ENGINES[kind].licenseUrl))}>
-                      {ENGINES[kind].license}
-                    </a>
-                  </div>
+                  <div className="mt-0.5 text-[12.5px] leading-snug text-muted">{info?.installed ? `Installed · ${formatBytes(info.size)}` : "Not downloaded"}</div>
                 </div>
                 {info?.installed ? (
                   <button
@@ -230,6 +225,11 @@ function SettingsBody() {
             </div>
           );
         })}
+        <Row title="Model license">
+          <button className="btn btn-ghost btn-sm" onClick={() => openUrl(LICENSE_URL)}>
+            View <ExternalIcon size={14} />
+          </button>
+        </Row>
       </Section>
 
       <TranslateSettings />
