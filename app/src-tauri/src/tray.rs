@@ -97,7 +97,10 @@ pub fn update(app: &AppHandle, status: Status) {
 
 /// Show the widget at the tray icon with a hint, the first time the main window closes.
 pub fn show_hint(app: &AppHandle) {
-    let Some(rect) = app.tray_by_id(TRAY).and_then(|tray| tray.rect().ok().flatten()) else {
+    let Some(rect) = app
+        .tray_by_id(TRAY)
+        .and_then(|tray| tray.rect().ok().flatten())
+    else {
         return;
     };
     if let Some(window) = app.get_webview_window("widget") {

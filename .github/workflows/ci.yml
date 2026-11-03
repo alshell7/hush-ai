@@ -27,7 +27,9 @@ jobs:
       matrix:
         include:
           - { name: Linux x64, runner: ubuntu-24.04 }
-          - { name: macOS ARM64, runner: macos-15 }
+          # The regression gates are validated on macOS 26: Accelerate's results differ
+          # slightly between macOS releases (see docs/ACCURACY.md).
+          - { name: macOS ARM64, runner: macos-26 }
           - { name: Windows x64, runner: windows-2025 }
     steps:
       - uses: actions/checkout@v5

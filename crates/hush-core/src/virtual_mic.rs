@@ -19,6 +19,7 @@ pub const RATE: u32 = 48_000;
 const CAPACITY: u64 = 16_384;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 const MAGIC: u32 = 0x4855_5348;
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
 const VERSION: u32 = 1;
 
 /// Mirror of `HushMicShared` in `virtual_mic/shared.h`.

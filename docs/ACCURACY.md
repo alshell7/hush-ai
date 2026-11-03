@@ -61,6 +61,11 @@ mostly from approximate math in NVIDIA's CUDA kernels, which all NVIDIA GPUs sha
 
 ## Known differences
 
+- On macOS, matrix products use Apple's Accelerate framework, whose results change
+  slightly between macOS releases. The gates are validated on macOS 26 (CI and an M1 Mac
+  mini). On the macOS 15 CI image, one fused case (8 kHz, 3 layers, reset) reaches a phase
+  SNR of 78.4 dB and a peak phase error of 2.8e-3 rad, short of its 82 dB / 2e-3 gate;
+  all other gates pass. The audio difference is still about −78 dB.
 - NVIDIA's code fails to reset at 22.05 kHz (cache shape). Hush runs 22.05 kHz, but there
   is no GPU reference for it.
 - Native STFT phase can take a different branch near ±π for very small bins.

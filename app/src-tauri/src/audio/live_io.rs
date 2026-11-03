@@ -467,7 +467,9 @@ mod tests {
 
     #[test]
     fn clocked_22050_profile_starts_with_actual_hop_capacity() {
-        let Ok(path) = std::env::var("HUSH_MODEL") else {
+        let Some(path) =
+            std::env::var_os("HUSH_MODEL").filter(|p| std::path::Path::new(p).is_file())
+        else {
             eprintln!("HUSH_MODEL absent; 22.05 kHz device-capacity regression skipped");
             return;
         };
