@@ -4,9 +4,11 @@
 //! thread and writes to the Hush AI Microphone, or to headphones while "Listen" is on.
 //! This module starts and stops it, restarts it when settings change, retries after device
 //! errors and sends state and meter events to the windows.
-use crate::audio::audio_io::{devices, Message, Selection, Sender, Settings as AudioSettings};
+use crate::audio::audio_io::{
+    devices, Message, ModelKind, Selection, Sender, Settings as AudioSettings,
+};
 use crate::audio::live_io::{self, control::StopReason, LiveSession, StopReport};
-use crate::settings::Settings;
+use crate::settings::{Engine as Model, Settings};
 use hush_core::live::LiveMeters;
 use serde::Serialize;
 use std::{
@@ -34,6 +36,8 @@ pub enum Status {
 pub struct EngineState {
     pub status: Status,
     pub message: Option<String>,
+    /// The model of the current or last session.
+    pub engine: Model,
     /// Output goes to headphones instead of the Hush AI Microphone.
     pub listen: bool,
     /// Listen to the unprocessed microphone (A/B).
@@ -86,9 +90,10 @@ fn explain(error: &str) -> String {
         "Your microphone is not available. Check that it is connected, or choose another one."
             .into()
     } else if lower.contains("safetensors")
+        || lower.contains("deepfilternet model")
         || lower.contains("model") && lower.contains("no such file")
     {
-        "The voice model is missing. Download it in Settings.".into()
+        "The voice model is missing or damaged. Download it again in Settings.".into()
     } else {
         error.lines().next().unwrap_or(error).to_string()
     }
@@ -117,6 +122,7 @@ impl Engine {
                 state: EngineState {
                     status: Status::Off,
                     message: None,
+                    engine: Model::DeepFilter,
                     listen: false,
                     original: false,
                     threads: 0,
@@ -187,7 +193,8 @@ impl Engine {
         let app = &self.app;
         let settings = app.state::<crate::AppState>().settings();
         let data_dir = app.path().app_data_dir().unwrap_or_default();
-        let Some(model) = crate::model::find(&data_dir) else {
+        inner.state.engine = settings.engine;
+        let Some(model) = crate::model::find(&data_dir, settings.engine) else {
             inner.state.status = Status::Error;
             inner.state.message = Some("Download the voice model to turn on Hush AI.".into());
             self.publish(inner);
@@ -385,8 +392,12 @@ fn output_selection(settings: &Settings) -> Selection {
 }
 
 pub fn audio_settings(settings: &Settings, model: PathBuf, virtual_mic: bool) -> AudioSettings {
-    let (rate, layers) = settings.quality.model();
+    let (kind, (rate, layers)) = match settings.engine {
+        Model::DeepFilter => (ModelKind::DeepFilter, (hush_core::DEEP_FILTER_RATE, 0)),
+        Model::Reuse => (ModelKind::Reuse, settings.quality.model()),
+    };
     AudioSettings {
+        kind,
         model,
         rate,
         layers,

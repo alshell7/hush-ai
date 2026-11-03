@@ -18,8 +18,10 @@ The warnings appear because the apps are not code-signed yet. They appear only o
 
 ## First start
 
-1. **Voice model.** Accept the model license and download it (54 MB). Hush checks the file
-   before it uses it.
+1. **Voice model.** Choose a model and download it. Hush checks the file before it uses it.
+   - **Efficient** (DeepFilterNet 3, 8 MB, recommended): little CPU, MIT or Apache-2.0
+     license, so you can use it at work too.
+   - **NVIDIA RE-USE** (54 MB): more CPU. Accept NVIDIA's noncommercial license first.
 2. **Microphone.** Choose your microphone and say something. The bar moves when Hush hears you.
 3. **Hush AI Microphone.**
    - **macOS:** press **Install**. macOS asks for your password once.
@@ -52,21 +54,32 @@ own list.
 ## Every day
 
 - **Tray or menu bar.** Click the mochi: turn noise cancellation on or off, change the
-  microphone or quality. Right-click for the menu.
+  microphone or the RE-USE quality. Right-click for the menu.
 - **Closing the window** keeps Hush running in the tray. Use **Quit** to stop it. When Hush
   is not running, Hush AI Microphone is silent.
 - **Open at login** (Settings) starts Hush in the tray when you log in.
 
-### Quality
+### Voice model
+
+| Model | Use it for | Cost | License |
+| --- | --- | --- | --- |
+| **Efficient** (DeepFilterNet 3) | Everything (48 kHz full band) | Lowest CPU, one thread | MIT or Apache-2.0 |
+| **NVIDIA RE-USE** | Light, Balanced or Studio, below | More CPU | Non-commercial use only |
+
+Switch on the main screen. Settings › Voice models downloads or removes each model. On the
+[VoiceBank-DEMAND test](COMPARISON.md), DeepFilterNet 3 scored higher than RE-USE Light on
+every metric.
+
+### RE-USE quality
 
 | Quality | Use it for | Cost |
 | --- | --- | --- |
-| **Light** | Calls and meetings (16 kHz voice band) | Lowest delay and CPU |
+| **Light** | Calls and meetings (16 kHz voice band) | Lowest delay and CPU of RE-USE |
 | **Balanced** | Clearer voice (24 kHz) | More CPU |
 | **Studio** | Recording, streaming (48 kHz full band) | Needs a fast CPU |
 
 The **Load** chip shows how much of real time the model needs. Below 100% it keeps up. If
-it stays high, choose Light.
+it stays high, choose Efficient, or Light with RE-USE.
 
 ### Listen to yourself
 
@@ -79,7 +92,7 @@ headphones, or your speakers will echo.
 | Problem | Fix |
 | --- | --- |
 | Apps hear nothing | Check that Hush is **On** and the app uses **Hush AI Microphone**. |
-| My voice sounds robotic or cut | Choose **Light**. Close heavy programs. On Windows, keep **Audio priority** on. |
+| My voice sounds robotic or cut | Choose **Efficient**, or **Light** with RE-USE. Close heavy programs. On Windows, keep **Audio priority** on. |
 | "Your microphone is not available" | Reconnect it or choose another. Hush retries on its own. |
 | Windows: Hush AI Microphone missing after a VB-CABLE update | Open Hush › Set up › **Rename** again. |
 | macOS: Hush AI Microphone missing | Settings › Hush AI Microphone, or run setup again (it restarts Core Audio). |
@@ -90,13 +103,14 @@ headphones, or your speakers will echo.
 1. Settings › Hush AI Microphone › **Remove** (macOS) or **Restore VB-CABLE names** (Windows).
 2. Uninstall the app like any other app. On Windows, uninstall VB-CABLE too if you no
    longer need it.
-3. Optional: delete the model and settings folder:
+3. Optional: delete the models and settings folder:
    - Windows: `%APPDATA%\ai.hush.desktop`
    - macOS: `~/Library/Application Support/ai.hush.desktop`
    - Linux: `~/.local/share/ai.hush.desktop` and `~/.config/ai.hush.desktop`
 
 ## Privacy
 
-Hush processes audio only on your computer. It connects to the internet to download the
-model (Hugging Face) and to check for updates (GitHub). It sends no audio, no usage data and
+Hush processes audio only on your computer. It connects to the internet to download a
+model (GitHub or jsDelivr for DeepFilterNet 3, Hugging Face for RE-USE) and to check for
+updates (GitHub). It sends no audio, no usage data and
 no crash reports.

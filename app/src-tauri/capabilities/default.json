@@ -19,7 +19,8 @@
         { "url": "https://alshell7.github.io/hush-ai*" },
         { "url": "https://huggingface.co/*" },
         { "url": "https://vb-audio.com/*" },
-        { "url": "https://github.com/NVlabs/*" }
+        { "url": "https://github.com/NVlabs/*" },
+        { "url": "https://github.com/Rikorose/DeepFilterNet*" }
       ]
     },
     "process:allow-restart",

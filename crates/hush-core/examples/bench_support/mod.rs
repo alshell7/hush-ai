@@ -4,13 +4,7 @@ use hush_core::{Denoiser, WorkerPlacement, WorkerScheduling};
 /// Default remains global Rayon for historical comparability. Both explicit modes use a
 /// dedicated pool, so their paired comparison isolates placement rather than pool ownership.
 pub fn configure_workers(denoiser: &mut Denoiser) -> Result<&'static str> {
-    let scheduling = match std::env::var("HUSH_WORKER_SCHEDULING").as_deref() {
-        Ok("windows-audio") => WorkerScheduling::WindowsAudio,
-        Ok("os-default") | Err(std::env::VarError::NotPresent) => WorkerScheduling::OsDefault,
-        _ => {
-            eyre::bail!("HUSH_WORKER_SCHEDULING must be os-default or windows-audio");
-        }
-    };
+    let scheduling = scheduling_from_env()?;
     let Ok(mode) = std::env::var("HUSH_WORKER_PLACEMENT") else {
         eyre::ensure!(
             scheduling == WorkerScheduling::OsDefault,
@@ -38,8 +32,19 @@ pub fn configure_workers(denoiser: &mut Denoiser) -> Result<&'static str> {
     })
 }
 
-pub fn scheduling_name(denoiser: &Denoiser) -> &'static str {
-    match denoiser.worker_scheduling() {
+/// `HUSH_WORKER_SCHEDULING`: `os-default` (or unset) or `windows-audio`.
+pub fn scheduling_from_env() -> Result<WorkerScheduling> {
+    match std::env::var("HUSH_WORKER_SCHEDULING").as_deref() {
+        Ok("windows-audio") => Ok(WorkerScheduling::WindowsAudio),
+        Ok("os-default") | Err(std::env::VarError::NotPresent) => Ok(WorkerScheduling::OsDefault),
+        _ => {
+            eyre::bail!("HUSH_WORKER_SCHEDULING must be os-default or windows-audio");
+        }
+    }
+}
+
+pub fn scheduling_name(scheduling: WorkerScheduling) -> &'static str {
+    match scheduling {
         WorkerScheduling::OsDefault => "os-default",
         WorkerScheduling::WindowsAudio => "windows-audio",
     }

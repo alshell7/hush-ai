@@ -2,10 +2,12 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { DevicePicker, Segmented, Spinner, Tip, Toggle } from "../components/Controls";
-import { CloseIcon, ExternalIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
+import { CloseIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
+import { ModelDownload } from "../components/ModelDownload";
 import { toast } from "../components/Toast";
-import { api, formatBytes, isTauri, openUrl } from "../lib/ipc";
+import { ENGINE_ORDER, ENGINES } from "../lib/engines";
+import { api, formatBytes, isTauri, openUrl, type Engine } from "../lib/ipc";
 import { saveSettings, setStore, useApp } from "../lib/store";
 import { checkForUpdate } from "../lib/updater";
 
@@ -74,7 +76,8 @@ function Row({ title, detail, children }: { title: string; detail?: React.ReactN
 function SettingsBody() {
   const settings = useApp((s) => s.settings)!;
   const engine = useApp((s) => s.engine)!;
-  const model = useApp((s) => s.model);
+  const models = useApp((s) => s.models);
+  const [adding, setAdding] = useState<Engine | null>(null);
   const devices = useApp((s) => s.devices);
   const vmic = useApp((s) => s.vmic);
   const platform = useApp((s) => s.platform);
@@ -133,23 +136,27 @@ function SettingsBody() {
             onChange={(output) => saveSettings({ output })}
           />
         </div>
-        <div className="py-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-[14px] font-[560]">
-            Processing threads
-            <Tip content="Automatic picks the fewest CPU threads that keep up, and adds more only when needed.">
-              <span className="text-faint">
-                <InfoIcon size={15} />
-              </span>
-            </Tip>
+        {settings.engine === "reuse" ? (
+          <div className="py-3.5">
+            <div className="mb-2 flex items-center gap-1.5 text-[14px] font-[560]">
+              Processing threads
+              <Tip content="Automatic picks the fewest CPU threads that keep up, and adds more only when needed.">
+                <span className="text-faint">
+                  <InfoIcon size={15} />
+                </span>
+              </Tip>
+            </div>
+            <Segmented
+              size="sm"
+              label="Threads"
+              value={String(settings.threads)}
+              options={["0", "1", "2", "4", "8"].map((v) => ({ value: v, label: v === "0" ? `Automatic${engine.status === "on" && engine.engine === "reuse" && settings.threads === 0 ? ` (${engine.threads})` : ""}` : v }))}
+              onChange={(v) => saveSettings({ threads: Number(v) })}
+            />
           </div>
-          <Segmented
-            size="sm"
-            label="Threads"
-            value={String(settings.threads)}
-            options={["0", "1", "2", "4", "8"].map((v) => ({ value: v, label: v === "0" ? `Automatic${engine.status === "on" && settings.threads === 0 ? ` (${engine.threads})` : ""}` : v }))}
-            onChange={(v) => saveSettings({ threads: Number(v) })}
-          />
-        </div>
+        ) : (
+          <Row title="Processing threads" detail={`${ENGINES.deepFilter.name} runs on one thread.`} />
+        )}
         {platform === "windows" && (
           <Row title="Audio priority" detail="Runs the model as a Windows “Pro Audio” task, so other apps do not interrupt your voice.">
             <Toggle label="Audio priority" on={settings.audioPriority} onChange={(audioPriority) => saveSettings({ audioPriority })} />
@@ -177,28 +184,51 @@ function SettingsBody() {
         </Row>
       </Section>
 
-      <Section title="Voice model">
-        <Row
-          title="NVIDIA Real-time RE-USE"
-          detail={model?.installed ? `Installed · ${formatBytes(model.size)}` : "Not downloaded"}
-        >
-          {model?.installed && (
-            <button
-              className="btn btn-soft btn-sm"
-              onClick={async () => {
-                setStore({ model: await api.removeModel() });
-                toast("Voice model removed. Download it again to use Hush.");
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </Row>
-        <Row title="Model license" detail="NVIDIA One-Way Noncommercial License: research and educational use.">
-          <button className="btn btn-ghost btn-sm" onClick={() => openUrl("https://huggingface.co/nvidia/Real-time_RE-USE")}>
-            Read <ExternalIcon size={14} />
-          </button>
-        </Row>
+      <Section title="Voice models">
+        {ENGINE_ORDER.map((kind) => {
+          const info = models?.[kind];
+          const inUse = settings.engine === kind;
+          return (
+            <div key={kind} className="py-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[14px] font-[560]">
+                    {ENGINES[kind].name}
+                    {inUse && (
+                      <span className="chip h-5 text-[11px] text-green" style={{ background: "rgba(31,157,114,.1)" }}>
+                        In use
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[12.5px] leading-snug text-muted">
+                    {info?.installed ? `Installed · ${formatBytes(info.size)}` : "Not downloaded"} ·{" "}
+                    <a className="link" onClick={(e) => (e.preventDefault(), openUrl(ENGINES[kind].licenseUrl))}>
+                      {ENGINES[kind].license}
+                    </a>
+                  </div>
+                </div>
+                {info?.installed ? (
+                  <button
+                    className="btn btn-soft btn-sm"
+                    onClick={async () => {
+                      setStore({ models: await api.removeModel(kind) });
+                      toast(inUse ? "Voice model removed. Download it again to use Hush." : "Voice model removed.");
+                    }}
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  adding !== kind && (
+                    <button className="btn btn-soft btn-sm" onClick={() => setAdding(kind)}>
+                      Download
+                    </button>
+                  )
+                )}
+              </div>
+              {!info?.installed && adding === kind && <ModelDownload engine={kind} />}
+            </div>
+          );
+        })}
       </Section>
 
       <Section title="About">

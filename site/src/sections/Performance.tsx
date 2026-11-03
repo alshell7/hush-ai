@@ -1,9 +1,9 @@
 import { Reveal, SectionHeader } from "../components/ui";
 
 const STATS = [
-  { value: "20 ms", label: "Model frames", note: "Live delay is about 60–80 ms, plus your device's buffers." },
-  { value: "80–250 MB", label: "Memory", note: "It does not grow over time." },
-  { value: "60 min", label: "Headset test", note: "A physical headset, with zero lost audio." },
+  { value: "7%", label: "CPU, default model", note: "DeepFilterNet 3 on one laptop core, offline. 11–13% in a live run." },
+  { value: "80–250 MB", label: "Memory", note: "With RE-USE. It does not grow over time." },
+  { value: "60 min", label: "Headset test", note: "RE-USE through a physical headset, with zero lost audio." },
   { value: "113–118 dB", label: "Waveform SNR", note: "CPU output against NVIDIA's GPU reference, on short speech." },
 ];
 
@@ -55,7 +55,7 @@ export function Performance() {
           <div className="card overflow-hidden p-2 sm:p-3">
             <table className="w-full border-collapse text-left">
               <caption className="px-4 pb-1 pt-4 text-left sm:px-5">
-                <span className="block text-[18px] font-[640] tracking-[-0.02em]">Time to process one frame (p99)</span>
+                <span className="block text-[18px] font-[640] tracking-[-0.02em]">NVIDIA RE-USE: time to process one 20 ms frame (p99)</span>
                 <span className="mt-1 block text-[14px] font-normal text-muted">99 of 100 frames finish within this time. Lower is better.</span>
               </caption>
               <thead>

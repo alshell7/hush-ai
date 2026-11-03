@@ -29,24 +29,30 @@ npm install
 npm run tauri dev
 ```
 
-The app downloads the model on first start. Or put it in `models/model.safetensors` at the
-repository root (a development build finds it there):
+The app downloads the chosen model on first start. Or put the models in `models/` at the
+repository root (a development build finds them there):
 
 ```sh
 mkdir -p models
+curl -fL -o models/DeepFilterNet3_onnx.tar.gz https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz
 curl -fL -o models/model.safetensors https://huggingface.co/alshell7/hush-ai/resolve/main/models/realtime-reuse-4c0c186.safetensors
 ```
 
-SHA-256: `6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade`.
+| File | Model | SHA-256 |
+| --- | --- | --- |
+| `DeepFilterNet3_onnx.tar.gz` | DeepFilterNet 3 (tag v0.5.6) | `c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616` |
+| `model.safetensors` | NVIDIA Real-time RE-USE (revision 4c0c186) | `6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade` |
+
+`HUSH_DFN_MODEL` and `HUSH_MODEL` override the two paths.
 
 **Design without the backend.** `npm run dev` and open http://localhost:1420. In a normal
 browser the frontend uses a simulated backend (`app/src/lib/ipc.ts`). Query options:
 `?platform=macos|windows|linux`, `?onboarded=0` (setup), `?vmic=install|download` (setup
-states), `#widget` (tray widget).
+states), `?models=deepFilter,reuse` (downloaded models), `#widget` (tray widget).
 
 **End-to-end check.** With `HUSH_SELFTEST=1`, the app drives the real backend through every
-command (devices, model, start, meters, quality change, stop, test recording) and prints
-`[selftest] PASS` or `FAIL`, then quits:
+command for each model (devices, download if missing, start, meters, quality change for
+RE-USE, stop, test recording) and prints `[selftest] PASS` or `FAIL`, then quits:
 
 ```sh
 cargo build -p hush-ai
@@ -58,7 +64,8 @@ On macOS, start `npm run dev` first (debug builds load the frontend from port 14
 ## Tests
 
 ```sh
-export HUSH_MODEL=$PWD/models/model.safetensors   # absolute path
+export HUSH_MODEL=$PWD/models/model.safetensors   # absolute paths
+export HUSH_DFN_MODEL=$PWD/models/DeepFilterNet3_onnx.tar.gz
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --release -- -D warnings
 cargo test -p hush-core --release -- --test-threads=1
@@ -67,7 +74,8 @@ cargo test -p hush-ai
 ```
 
 `hush-core` tests include NVIDIA's seven GPU regression cases ([Accuracy](ACCURACY.md)).
-Never loosen a gate to make a change pass.
+Never loosen a gate to make a change pass. The DeepFilterNet 3 tests check that Hush's
+output is bit-identical to libDF called directly with the `deep-filter` settings.
 
 Virtual microphone reader tests:
 
@@ -83,8 +91,8 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -o test_ring virtual_mic/test_ring.c -lm &
 | `release.yml` | Tag `v*` | Installers for Windows x64/ARM64, macOS Apple silicon/Intel, Linux; signed update files; GitHub release |
 | `pages.yml` | Push to `main` that changes `site/` or the app frontend | Website plus the live app demo |
 
-Caches: Cargo (`Swatinem/rust-cache`, one key per job type), npm (`setup-node`), the model
-(`actions/cache`, keyed by its hash). Runs on the same branch cancel older ones.
+Caches: Cargo (`Swatinem/rust-cache`, one key per job type), npm (`setup-node`), both models
+(`actions/cache`, keyed by their hashes). Runs on the same branch cancel older ones.
 
 ## Release
 
@@ -115,9 +123,12 @@ builds signed with a new key; users must install the new version by hand.
   `APPLE_CERTIFICATE`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` and
   `APPLE_TEAM_ID` secrets; `tauri-action` signs and notarizes automatically.
 
-## Model on Hugging Face
+## Model downloads
 
-[`alshell7/hush-ai`](https://huggingface.co/alshell7/hush-ai) holds the weights the app
-downloads (`models/realtime-reuse-4c0c186.safetensors`, NVIDIA revision `4c0c186`), the
+[`alshell7/hush-ai`](https://huggingface.co/alshell7/hush-ai) holds the RE-USE weights the
+app downloads (`models/realtime-reuse-4c0c186.safetensors`, NVIDIA revision `4c0c186`), the
 NVIDIA license and the model card. The app falls back to NVIDIA's repository at the same
 revision. Both are checked against the same SHA-256.
+
+DeepFilterNet 3 comes from the DeepFilterNet repository at tag v0.5.6
+(`raw.githubusercontent.com`), then from jsDelivr's copy of the same tag, with one SHA-256.

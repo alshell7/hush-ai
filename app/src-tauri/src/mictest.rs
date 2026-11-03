@@ -164,13 +164,13 @@ impl MicTest {
         *id
     }
 
-    /// Record `seconds` from the chosen microphone, then enhance it with the chosen quality.
+    /// Record `seconds` from the chosen microphone, then enhance it with the chosen model.
     pub fn record(&self, app: &AppHandle, seconds: f32) -> eyre::Result<()> {
         self.stop_monitor();
         self.stop();
         let settings = app.state::<crate::AppState>().settings();
         let data_dir = app.path().app_data_dir()?;
-        let model = crate::model::find(&data_dir)
+        let model = crate::model::find(&data_dir, settings.engine)
             .ok_or_else(|| eyre::eyre!("Download the voice model first"))?;
         let mut audio = crate::engine::audio_settings(&settings, model, false);
         audio.threads = thread::available_parallelism()

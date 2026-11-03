@@ -1,13 +1,13 @@
 // One small app store shared by every component of a window. Updates come from backend
 // events; components read slices with `useApp`.
 import { useSyncExternalStore } from "react";
-import { api, on, type Devices, type EngineState, type ModelInfo, type Platform, type Settings, type VmicInfo } from "./ipc";
+import { api, on, type Devices, type EngineState, type Models, type Platform, type Settings, type VmicInfo } from "./ipc";
 
 export interface AppStore {
   ready: boolean;
   settings: Settings | null;
   engine: EngineState | null;
-  model: ModelInfo | null;
+  models: Models | null;
   vmic: VmicInfo | null;
   devices: Devices | null;
   platform: Platform;
@@ -19,7 +19,7 @@ let state: AppStore = {
   ready: false,
   settings: null,
   engine: null,
-  model: null,
+  models: null,
   vmic: null,
   devices: null,
   platform: "windows",
@@ -54,13 +54,17 @@ export async function startStore() {
   if (started) return;
   started = true;
   // Subscribe first, then read the snapshot, so no state change falls in between.
-  await Promise.all([on("engine", (engine) => setStore({ engine })), on("settings", (settings) => setStore({ settings }))]);
+  await Promise.all([
+    on("engine", (engine) => setStore({ engine })),
+    on("settings", (settings) => setStore({ settings })),
+    on("models", (models) => setStore({ models })),
+  ]);
   const snapshot = await api.snapshot();
   setStore({
     ready: true,
     settings: snapshot.settings,
     engine: snapshot.engine,
-    model: snapshot.model,
+    models: snapshot.models,
     platform: snapshot.platform,
     version: snapshot.version,
   });

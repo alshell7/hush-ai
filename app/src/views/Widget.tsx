@@ -5,6 +5,7 @@ import { Segmented, Toggle } from "../components/Controls";
 import { ExternalIcon, MicIcon } from "../components/Icons";
 import { LevelStrip } from "../components/Meters";
 import { Mark, Mochi } from "../components/Mochi";
+import { ENGINES } from "../lib/engines";
 import { api, on } from "../lib/ipc";
 import { refreshDevices, saveSettings, useApp } from "../lib/store";
 
@@ -83,17 +84,21 @@ export function Widget() {
         </div>
 
         <div className="relative mt-3">
-          <Segmented
-            size="sm"
-            label="Quality"
-            value={settings.quality}
-            options={[
-              { value: "light", label: "Light" },
-              { value: "balanced", label: "Balanced" },
-              { value: "studio", label: "Studio" },
-            ]}
-            onChange={(quality) => saveSettings({ quality })}
-          />
+          {settings.engine === "reuse" ? (
+            <Segmented
+              size="sm"
+              label="Quality"
+              value={settings.quality}
+              options={[
+                { value: "light", label: "Light" },
+                { value: "balanced", label: "Balanced" },
+                { value: "studio", label: "Studio" },
+              ]}
+              onChange={(quality) => saveSettings({ quality })}
+            />
+          ) : (
+            <div className="px-1 text-[12px] text-muted">{ENGINES.deepFilter.name} · 48 kHz</div>
+          )}
         </div>
 
         <footer className="relative mt-auto flex items-center justify-between pt-3">

@@ -5,10 +5,20 @@ This product is licensed under the Apache License, Version 2.0 (see LICENSE), ex
 the parts listed below.
 
 ------------------------------------------------------------------------------------------
-Voice model (not in this repository)
+Voice models (not in this repository)
 
-The app downloads NVIDIA Real-time RE-USE weights (model.safetensors, revision 4c0c186)
-from https://huggingface.co/alshell7/hush-ai or https://huggingface.co/nvidia/Real-time_RE-USE.
+DeepFilterNet 3. The app downloads DeepFilterNet3_onnx.tar.gz (SHA-256
+c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616) from the DeepFilterNet
+repository at tag v0.5.6 (https://github.com/Rikorose/DeepFilterNet, models/), or from the
+jsDelivr mirror of the same tag. The file is part of that repository, which is licensed
+under MIT OR Apache-2.0 (LICENSE, LICENSE-MIT and LICENSE-APACHE at its root; Copyright (c)
+2021 Hendrik Schröter). The repository does not give the model a separate license.
+DeepFilterNet 3 is described in Schröter et al., "DeepFilterNet: Perceptually Motivated
+Real-Time Speech Enhancement" (https://arxiv.org/abs/2305.08227).
+
+NVIDIA Real-time RE-USE. The app downloads NVIDIA Real-time RE-USE weights
+(model.safetensors, revision 4c0c186) from https://huggingface.co/alshell7/hush-ai or
+https://huggingface.co/nvidia/Real-time_RE-USE.
 They are licensed by NVIDIA under the NVIDIA One-Way Noncommercial License
 (https://github.com/NVlabs/HMAR/blob/main/LICENSE): non-commercial research and
 educational use only. The app shows this license and asks the user to accept it before
@@ -17,6 +27,13 @@ the download.
 The sample recording in site/public/samples (noisy.mp3) comes from the same NVIDIA
 repository, and hush.mp3 is that recording processed by Hush AI. Both are under the
 NVIDIA One-Way Noncommercial License; see site/public/samples/LICENSE.
+
+------------------------------------------------------------------------------------------
+libDF and tract
+
+crates/hush-core runs DeepFilterNet 3 with libDF (crate deep_filter 0.5.6, from the
+DeepFilterNet repository at tag v0.5.6), licensed under MIT OR Apache-2.0, and with tract
+by Sonos (https://github.com/sonos/tract), licensed under MIT OR Apache-2.0.
 
 ------------------------------------------------------------------------------------------
 re-use-rs

@@ -3,7 +3,8 @@
 [Home](../README.md) · [Architecture](ARCHITECTURE.md) · [Performance](PERFORMANCE.md)
 
 Hush uses NVIDIA's original FP32 weights without change: no training, fine-tuning or
-quantization. This page compares Hush's CPU output with NVIDIA's own GPU code.
+quantization. This page compares Hush's CPU output with NVIDIA's own GPU code. For
+DeepFilterNet 3, see [the end of this page](#deepfilternet-3).
 
 ## Summary
 
@@ -75,4 +76,20 @@ mostly from approximate math in NVIDIA's CUDA kernels, which all NVIDIA GPUs sha
 ```sh
 export HUSH_MODEL=$PWD/models/model.safetensors
 cargo test -p hush-core --release --test gpu_reference -- --test-threads=1
+```
+
+## DeepFilterNet 3
+
+Hush runs DeepFilterNet 3 with libDF 0.5.6, the Rust code of the official `deep-filter`
+command, with the same settings. Hush only removes the model's 30 ms delay from offline
+output and feeds the model in its 10 ms frames.
+
+| Check | Result |
+| --- | --- |
+| `tests/deepfilter.rs`: Hush against libDF called directly, 1.5 s of tones in noise, chunks that do not match frames | **Bit-identical** |
+| 824 VoiceBank-DEMAND files, Hush against the official `deep-filter` 0.5.6 binary for Windows | Equal on every file to within 1 step of 16-bit rounding (the binary writes 16-bit files) |
+
+```sh
+export HUSH_DFN_MODEL=$PWD/models/DeepFilterNet3_onnx.tar.gz
+cargo test -p hush-core --release --test deepfilter
 ```

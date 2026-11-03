@@ -2,7 +2,7 @@
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, Stream};
 use eyre::{bail, Result};
-use hush_core::{resample, Config, Denoiser};
+use hush_core::{resample, Config, DeepFilter, Denoiser, Enhancer};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::{
     path::PathBuf,
@@ -65,7 +65,17 @@ pub enum PlaybackEnd {
     Stopped,
 }
 
+/// Which model [`Settings::model`] holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ModelKind {
+    /// NVIDIA RE-USE at `rate`, `layers` and `look_ahead`.
+    Reuse,
+    /// DeepFilterNet 3: 48 kHz on one thread; `layers`, `look_ahead` and `threads` are unused.
+    DeepFilter,
+}
+
 pub struct Settings {
+    pub kind: ModelKind,
     pub model: PathBuf,
     pub rate: u32,
     pub layers: usize,
@@ -147,6 +157,35 @@ fn output_stream<T: SizedSample + FromSample<f32>>(
     )?)
 }
 
+/// Load the model and set up its workers. `automatic` with zero threads picks the count
+/// (RE-USE only). Returns the model and its worker count.
+pub fn load_model(settings: &Settings, automatic: bool) -> Result<(Box<dyn Enhancer>, usize)> {
+    if settings.kind == ModelKind::DeepFilter {
+        let mut model = DeepFilter::load(&settings.model)?;
+        model.set_worker_scheduling(settings.scheduling);
+        return Ok((Box::new(model), 1));
+    }
+    let mut model = Denoiser::with_config(
+        &settings.model,
+        Config {
+            layers: settings.layers,
+            sample_rate: settings.rate,
+            look_ahead: settings.look_ahead,
+        },
+    )?;
+    let threads = if automatic && settings.threads == 0 {
+        model.set_automatic_worker_threads(settings.placement, settings.scheduling)?
+    } else {
+        model.set_worker_threads_with_options(
+            settings.threads,
+            settings.placement,
+            settings.scheduling,
+        )?;
+        settings.threads
+    };
+    Ok((Box::new(model), threads))
+}
+
 fn enhance(
     samples: Vec<f32>,
     input_rate: u32,
@@ -158,19 +197,7 @@ fn enhance(
     let enhanced = if settings.bypass {
         original.clone()
     } else {
-        let mut denoiser = Denoiser::with_config(
-            &settings.model,
-            Config {
-                layers: settings.layers,
-                sample_rate: settings.rate,
-                look_ahead: settings.look_ahead,
-            },
-        )?;
-        denoiser.set_worker_threads_with_options(
-            settings.threads,
-            settings.placement,
-            settings.scheduling,
-        )?;
+        let (mut denoiser, _) = load_model(&settings, false)?;
         let _registration = settings.scheduling.enter_current_thread()?;
         let mut out = Vec::with_capacity(original.len() + denoiser.frame());
         for chunk in original.chunks(denoiser.frame()) {

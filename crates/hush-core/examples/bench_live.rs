@@ -2,10 +2,12 @@
 //! Usage: bench_live [rate=48000] [layers=3] [lookahead=0] [frames=600]
 //!                   [warmup=100] [buffer_frames=4] [queue_frames=8]
 //! Startup waits model latency plus buffer_frames; warmup counters are reported separately.
+//! A `HUSH_MODEL` that ends in `.tar.gz` runs DeepFilterNet 3 on one thread: rate must be
+//! 48000, and layers and lookahead are ignored. Frames are then 10 ms.
 
 use cpu_time::ProcessTime;
 use eyre::{ensure, Result};
-use hush_core::{live::LiveWorker, Config, Denoiser};
+use hush_core::{live::LiveWorker, Config, DeepFilter, Denoiser, Enhancer};
 use std::time::{Duration, Instant};
 mod bench_support;
 
@@ -30,17 +32,29 @@ fn main() -> Result<()> {
         "queue must exceed positive startup buffering"
     );
     let model = std::env::var("HUSH_MODEL").unwrap_or_else(|_| "models/model.safetensors".into());
-    let mut denoiser = Denoiser::with_config(
-        model,
-        Config {
-            sample_rate: rate,
-            layers,
-            look_ahead,
-        },
-    )?;
-    let placement = bench_support::configure_workers(&mut denoiser)?;
-    let worker_threads = denoiser.worker_threads();
-    let scheduling = bench_support::scheduling_name(&denoiser);
+    let (denoiser, placement, worker_threads, engine): (Box<dyn Enhancer>, _, _, _) =
+        if model.ends_with(".tar.gz") {
+            let mut model = DeepFilter::load(model)?;
+            ensure!(
+                rate == model.sample_rate(),
+                "DeepFilterNet runs at 48000 Hz"
+            );
+            model.set_worker_scheduling(bench_support::scheduling_from_env()?);
+            (Box::new(model), "single-thread", 1, "deepfilternet3")
+        } else {
+            let mut model = Denoiser::with_config(
+                model,
+                Config {
+                    sample_rate: rate,
+                    layers,
+                    look_ahead,
+                },
+            )?;
+            let placement = bench_support::configure_workers(&mut model)?;
+            let threads = model.worker_threads();
+            (Box::new(model), placement, threads, "reuse")
+        };
+    let scheduling = bench_support::scheduling_name(denoiser.worker_scheduling());
     let hop = denoiser.frame();
     let latency_frames = denoiser.latency().div_ceil(hop);
     let delay = latency_frames + buffer_frames;
@@ -119,7 +133,7 @@ fn main() -> Result<()> {
         .filter(|&&ms| ms >= period.as_secs_f64() * 1000.0)
         .count();
     println!(concat!(
-        "{{\"mode\":\"synthetic-paced-worker\",\"sample_rate\":{rate},\"layers\":{layers},\"look_ahead\":{look_ahead},",
+        "{{\"mode\":\"synthetic-paced-worker\",\"engine\":\"{engine}\",\"sample_rate\":{rate},\"layers\":{layers},\"look_ahead\":{look_ahead},",
         "\"frames\":{frames},\"warmup_frames\":{warmup},\"buffer_frames\":{buffer_frames},\"queue_frames\":{queue_frames},",
         "\"hop_samples\":{hop},\"model_latency_frames\":{latency_frames},\"rayon_threads\":{},\"worker_placement\":\"{placement}\",\"worker_scheduling\":\"{scheduling}\",",
         "\"input_dropped_samples\":{},\"output_dropped_samples\":{},\"output_underrun_samples\":{},\"discontinuities\":{},",
@@ -138,7 +152,8 @@ fn main() -> Result<()> {
         rate=rate, layers=layers, look_ahead=look_ahead, frames=frames, warmup=warmup,
         buffer_frames=buffer_frames, queue_frames=queue_frames, hop=hop, latency_frames=latency_frames,
         consumed=consumed, max_pending=max_pending, max_output=max_output, p99=p99, max_late=max_late,
-        late_hops=late_hops, wall=wall, finite=finite, placement=placement, scheduling=scheduling);
+        late_hops=late_hops, wall=wall, finite=finite, placement=placement, scheduling=scheduling,
+        engine=engine);
     ensure!(
         !end.worker_failed && finite,
         "worker failed or produced non-finite output"

@@ -16,6 +16,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
   HUSH_MODEL: ${{ github.workspace }}/models/model.safetensors
+  HUSH_DFN_MODEL: ${{ github.workspace }}/models/DeepFilterNet3_onnx.tar.gz
   RAYON_NUM_THREADS: 2
 
 jobs:
@@ -52,17 +53,30 @@ jobs:
         run: |
           mkdir -p models
           curl -fL --retry 3 -o "$HUSH_MODEL" https://huggingface.co/nvidia/Real-time_RE-USE/resolve/4c0c186272ca853cd18d832fc5c28777b62f32d1/model.safetensors
-      - name: Check the model hash
+      - name: DeepFilterNet 3 model (cached)
+        id: dfn-model
+        uses: actions/cache@v4
+        with:
+          path: models/DeepFilterNet3_onnx.tar.gz
+          key: dfn-model-c94d91f70911001c
+      - name: Download the DeepFilterNet 3 model
+        if: steps.dfn-model.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p models
+          curl -fL --retry 3 -o "$HUSH_DFN_MODEL" https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz
+      - name: Check the model hashes
         shell: bash
         run: |
           echo "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade  $HUSH_MODEL" > model.sha256
+          echo "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616  $HUSH_DFN_MODEL" >> model.sha256
           if command -v sha256sum >/dev/null; then sha256sum -c model.sha256; else shasum -a 256 -c model.sha256; fi
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --all --check
       - name: Lint
         run: cargo clippy -p hush-core --locked --all-targets --release -- -D warnings
-      - name: Test (NVIDIA regression cases included)
+      - name: Test (NVIDIA regression cases and DeepFilterNet 3 included)
         run: cargo test -p hush-core --locked --release -- --test-threads=1
 
   app:

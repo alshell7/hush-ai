@@ -5,6 +5,7 @@ import { Reveal, SectionHeader } from "../components/ui";
 import { MODELS_URL, REPO_URL } from "../lib/download";
 
 const NVIDIA_LICENSE = "https://huggingface.co/nvidia/Real-time_RE-USE";
+const DFN_LICENSE = "https://github.com/Rikorose/DeepFilterNet#license";
 
 const FAQ: { id: string; q: string; a: ReactNode }[] = [
   {
@@ -25,7 +26,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     q: "Does my audio leave my computer?",
     a: (
       <p>
-        No. Hush processes your microphone on your own CPU and does not send audio anywhere. It goes online for two things only: downloading the voice model
+        No. Hush processes your microphone on your own CPU and does not send audio anywhere. It goes online for two things only: downloading a voice model
         once (it checks the file's SHA-256), and checking for app updates.
       </p>
     ),
@@ -84,12 +85,18 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
           The Hush app and engine code are Apache-2.0, so you can use, change and share the code freely, including at work.
         </p>
         <p>
-          The voice model weights are NVIDIA's, under the{" "}
+          Hush has two voice models. The default, <b>DeepFilterNet 3</b>, is open source under the{" "}
+          <a className="link" href={DFN_LICENSE} target="_blank" rel="noopener">
+            MIT or Apache-2.0 license
+          </a>
+          , so you can use it at work too.
+        </p>
+        <p>
+          The other one, <b>NVIDIA RE-USE</b>, comes with NVIDIA's weights under the{" "}
           <a className="link" href={NVIDIA_LICENSE} target="_blank" rel="noopener">
             NVIDIA One-Way Noncommercial License
           </a>
-          . They are for non-commercial research and educational use only, and Hush needs them to work. So for now, Hush is meant for non-commercial use. If you
-          want to use it at work, read NVIDIA's license first. The weights Hush downloads are mirrored on{" "}
+          : non-commercial research and educational use only. Hush asks you to accept it before the download. The weights are mirrored on{" "}
           <a className="link" href={MODELS_URL} target="_blank" rel="noopener">
             Hugging Face
           </a>

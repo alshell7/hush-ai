@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     )?;
     let placement = bench_support::configure_workers(&mut denoiser)?;
     let worker_threads = denoiser.worker_threads();
-    let scheduling = bench_support::scheduling_name(&denoiser);
+    let scheduling = bench_support::scheduling_name(denoiser.worker_scheduling());
     let _registration = denoiser.worker_scheduling().enter_current_thread()?;
     let hop = denoiser.frame();
     let input = if let Some(path) = args.get(6).filter(|s| s.as_str() != "-") {

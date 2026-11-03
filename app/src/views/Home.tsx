@@ -7,9 +7,11 @@ import { AgentIcon, ChartIcon, GearIcon, HeadphonesIcon, LockIcon, MicIcon, Spar
 import { LevelStrip, useMeters } from "../components/Meters";
 import { APPS, AppHint } from "../components/Mockups";
 import { Mark, Wordmark } from "../components/Mochi";
+import { ModelDownload } from "../components/ModelDownload";
 import { PowerHero } from "../components/PowerHero";
 import { TitleBar } from "../components/TitleBar";
 import { VmicSetup } from "../components/VmicSetup";
+import { ENGINE_ORDER, ENGINES } from "../lib/engines";
 import { api, type Quality } from "../lib/ipc";
 import { refreshDevices, refreshVmic, saveSettings, useApp } from "../lib/store";
 import { installUpdate } from "../lib/updater";
@@ -171,14 +173,29 @@ export function Home() {
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[15px] font-semibold">Quality</span>
+              <span className="text-[15px] font-semibold">Voice model</span>
               <Tip content="How much of real time the model needs. Below 100% it keeps up.">
                 <span className="chip cursor-default">
                   Load <span ref={load} className="tabular-nums">{on ? "…" : "0%"}</span>
                 </span>
               </Tip>
             </div>
-            <Segmented label="Quality" value={settings.quality} options={QUALITY.map((q) => ({ value: q.value, label: q.label, hint: q.hint }))} onChange={(quality) => saveSettings({ quality })} />
+            <Segmented
+              label="Voice model"
+              value={settings.engine}
+              options={ENGINE_ORDER.map((engine) => ({ value: engine, label: ENGINES[engine].label, hint: ENGINES[engine].hint }))}
+              onChange={(engine) => saveSettings({ engine })}
+            />
+            <AnimatePresence initial={false}>
+              {settings.engine === "reuse" && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="pt-3">
+                    <Segmented size="sm" label="Quality" value={settings.quality} options={QUALITY.map((q) => ({ value: q.value, label: q.label, hint: q.hint }))} onChange={(quality) => saveSettings({ quality })} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <ModelDownload key={settings.engine} engine={settings.engine} />
           </Card>
 
           <Card>

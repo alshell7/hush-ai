@@ -6,7 +6,7 @@ use eyre::{bail, ensure, Result, WrapErr};
 use hush_core::{
     live::{LiveInput, LiveOutput, LiveWorker},
     virtual_mic::{Feeder, VirtualMic},
-    Config, Denoiser,
+    Enhancer,
 };
 use std::{
     sync::{
@@ -217,7 +217,11 @@ fn virtual_mic_feeder(
     })
 }
 
-fn queue_capacities(denoiser: &Denoiser, rates: LiveRates, bypass: bool) -> Result<(usize, usize)> {
+fn queue_capacities(
+    denoiser: &dyn Enhancer,
+    rates: LiveRates,
+    bypass: bool,
+) -> Result<(usize, usize)> {
     // NVIDIA rounds the 22.05 kHz hop to 442 samples, slightly longer than 20 ms.
     // Match LiveWorker's conversion of the actual hop, including its device-rate bypass path.
     let (frame, rate) = if bypass {
@@ -225,14 +229,28 @@ fn queue_capacities(denoiser: &Denoiser, rates: LiveRates, bypass: bool) -> Resu
     } else {
         (denoiser.frame() as u64, denoiser.sample_rate())
     };
+    // At least 80 ms: four 20 ms RE-USE frames, eight 10 ms DeepFilterNet frames.
+    let frames = (u64::from(rate) * 2).div_ceil(25 * frame).max(4) as usize;
     let capacity = |device_rate: u32| -> Result<usize> {
         let frame = (frame * u64::from(device_rate)).div_ceil(u64::from(rate));
         usize::try_from(frame)
             .ok()
-            .and_then(|frame| frame.checked_mul(4))
+            .and_then(|frame| frame.checked_mul(frames))
             .ok_or_else(|| eyre::eyre!("Audio queue capacity exceeds addressable memory"))
     };
     Ok((capacity(rates.input)?, capacity(rates.output)?))
+}
+
+/// Output prefill in model frames: at least 20 ms, so short device callbacks do not drain it.
+/// Bypass frames are always 20 ms.
+fn prefill_frames(denoiser: &dyn Enhancer, requested: usize, bypass: bool) -> usize {
+    if bypass {
+        return requested;
+    }
+    let frame_ms = denoiser.frame() as u64 * 1000 / u64::from(denoiser.sample_rate());
+    requested
+        .max(20u64.div_ceil(frame_ms.max(1)) as usize)
+        .min(3)
 }
 
 fn start_streams(
@@ -288,26 +306,14 @@ fn start_streams(
             }),
         threads: 0,
     };
-    let mut denoiser = Denoiser::with_config(
-        &settings.model,
-        Config {
-            layers: settings.layers,
-            sample_rate: settings.rate,
-            look_ahead: settings.look_ahead,
-        },
-    )?;
-    let threads = if settings.threads == 0 {
-        denoiser.set_automatic_worker_threads(settings.placement, settings.scheduling)?
-    } else {
-        denoiser.set_worker_threads_with_options(
-            settings.threads,
-            settings.placement,
-            settings.scheduling,
-        )?;
-        settings.threads
+    let (denoiser, threads) = super::audio_io::load_model(&settings, true)?;
+    let rates = LiveRates {
+        threads,
+        model: denoiser.sample_rate(),
+        ..rates
     };
-    let rates = LiveRates { threads, ..rates };
-    let (input_capacity, output_capacity) = queue_capacities(&denoiser, rates, settings.bypass)?;
+    let (input_capacity, output_capacity) = queue_capacities(&*denoiser, rates, settings.bypass)?;
+    let prefill = prefill_frames(&*denoiser, settings.prefill, settings.bypass);
     let (worker, input, output) = LiveWorker::start_clocked_with_prefill(
         denoiser,
         rates.input,
@@ -315,7 +321,7 @@ fn start_streams(
         input_capacity,
         output_capacity,
         settings.bypass,
-        settings.prefill,
+        prefill,
     )?;
     let faded = Arc::new(AtomicBool::new(false));
     macro_rules! build_input {
@@ -464,6 +470,67 @@ pub fn start(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use hush_core::{Config, Denoiser};
+
+    /// Frame sizes only, for the queue arithmetic.
+    struct Shape(u32, usize);
+    impl Enhancer for Shape {
+        fn sample_rate(&self) -> u32 {
+            self.0
+        }
+        fn frame(&self) -> usize {
+            self.1
+        }
+        fn latency(&self) -> usize {
+            0
+        }
+        fn reset(&mut self) {}
+        fn prepare(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn process_into(&mut self, _: &[f32], _: &mut Vec<f32>) -> Result<()> {
+            Ok(())
+        }
+        fn flush(&mut self) -> Result<Vec<f32>> {
+            Ok(Vec::new())
+        }
+        fn worker_scheduling(&self) -> hush_core::WorkerScheduling {
+            hush_core::WorkerScheduling::OsDefault
+        }
+    }
+
+    #[test]
+    fn queues_and_prefill_hold_the_same_time_for_10_and_20_ms_frames() {
+        let rates = LiveRates {
+            input: 48000,
+            model: 48000,
+            output: 44100,
+            threads: 1,
+        };
+        let deep_filter = Shape(48000, 480);
+        assert_eq!(
+            queue_capacities(&deep_filter, rates, false).unwrap(),
+            (3840, 3528)
+        );
+        assert_eq!(prefill_frames(&deep_filter, 1, false), 2);
+        assert_eq!(prefill_frames(&deep_filter, 1, true), 1);
+        let light = Shape(16000, 320);
+        assert_eq!(
+            queue_capacities(
+                &light,
+                LiveRates {
+                    model: 16000,
+                    ..rates
+                },
+                false
+            )
+            .unwrap(),
+            (3840, 3528)
+        );
+        assert_eq!(prefill_frames(&light, 1, false), 1);
+        assert_eq!(prefill_frames(&Shape(22050, 442), 1, false), 1);
+    }
 
     #[test]
     fn clocked_22050_profile_starts_with_actual_hop_capacity() {

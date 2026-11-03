@@ -10,8 +10,15 @@ Hush AI has three parts:
 | App: windows, tray, devices, setup, updates | [`app`](../app) (Tauri 2) | Rust + React |
 | Virtual microphone drivers | [`virtual_mic`](../virtual_mic) | C / C++ |
 
-The engine runs NVIDIA's Real-time RE-USE weights in FP32, without change. It needs no
-Python, GPU or network.
+The engine runs one of two voice models, chosen in the app. Both run on the CPU, without
+Python, GPU or network:
+
+| Model | Code | Rate | Frame | Threads | License of the weights |
+| --- | --- | --- | --- | --- | --- |
+| **DeepFilterNet 3** (default) | libDF 0.5.6 with tract, the same Rust code as the official `deep-filter` command | 48 kHz | 10 ms | 1 | MIT or Apache-2.0 |
+| **NVIDIA Real-time RE-USE** | Hush's own Rust port, FP32, NVIDIA's weights without change | 16–48 kHz (Light, Balanced, Studio) | 20 ms | Automatic or fixed | NVIDIA One-Way Noncommercial |
+
+Both implement `hush_core::Enhancer`, the streaming interface that the live worker drives.
 
 ## Live audio path
 
@@ -30,14 +37,14 @@ flowchart LR
 | Windows (webview) | Controls, meters, setup | Never touches devices directly |
 | Control thread | Finds devices, loads the model, starts and stops streams | Blocking device calls stay here |
 | Input callback | Converts and down-mixes samples into a bounded queue | No allocation, lock or inference. A full queue drops samples and counts them |
-| Inference worker | Rate conversion, framing, model, output queue | Owns all model and filter state |
-| Rayon workers | Parallel CPU kernels | **Automatic** (default) or a fixed count |
+| Inference worker | Rate conversion, framing, model, output queue | Owns all model and filter state. DeepFilterNet 3 runs here, on this thread only |
+| Rayon workers | Parallel CPU kernels of RE-USE | **Automatic** (default) or a fixed count |
 | Output callback | Reads samples, fades gaps to silence | No allocation, lock or waiting |
 | Virtual microphone feeder | Moves output into the driver's ring buffer | Real-time priority; 2 ms period |
 
 ### Workers and priority
 
-**Automatic** threads measure the computer when noise cancellation starts. The worker tries
+DeepFilterNet 3 needs one thread, so it uses no worker pool. For RE-USE, **Automatic** threads measure the computer when noise cancellation starts. The worker tries
 1, 2, 3 … threads for about 30 frames each and keeps the fewest that finish a frame in 60%
 of its time. It stops early when one more thread cuts the frame time by less than 10%,
 because each thread adds CPU use. While running, it adds a thread after one second above
@@ -51,7 +58,8 @@ coalescing). The virtual microphone feeder uses MMCSS on Windows and the Mach re
 policy on macOS (`hush_core::audio_thread`).
 
 The model rate and the device rates are independent: a 48 kHz headset can use the 16 kHz
-model. The worker converts the rates. A bounded output-rate correction (±1000 ppm) follows
+model, and DeepFilterNet 3 always runs at 48 kHz. The worker converts the rates. A bounded
+output-rate correction (±1000 ppm) follows
 the drift between the input and output clocks.
 
 An input gap resets the model, the filters and the drift controller. The output discards
@@ -59,18 +67,17 @@ samples from before the reset and fades for 5 ms.
 
 ### Delay budget
 
-One model frame (hop) is 20 ms at every rate.
+| Part | RE-USE (20 ms frames) | DeepFilterNet 3 (10 ms frames) |
+| --- | --- | --- |
+| Frame collection | 20 ms | 10 ms |
+| Model delay | 20 ms (analysis window) | 30 ms (window and 2 frames of look-ahead) |
+| Output prefill | 20 ms (1 frame) | 20 ms (2 frames) |
+| Rate conversion | 16 samples per conversion | 16 samples per conversion |
+| Device buffers | Set by the operating system and the driver | Same |
 
-| Part | Delay |
-| --- | --- |
-| Frame collection | 1 frame |
-| Model analysis window | 1 frame |
-| Output prefill | 1 frame |
-| Rate conversion | 16 samples per conversion |
-| Device buffers | Set by the operating system and the driver |
-
-Hush adds about 60 ms before device buffers. VB-CABLE on Windows adds about 84 ms more;
-the Hush drivers read 10 ms behind the newest sample.
+Both models add about 60 ms before device buffers. The prefill is at least 20 ms for both,
+so device callbacks of 10 ms or more do not drain it. VB-CABLE on Windows adds about 84 ms
+more; the Hush drivers read 10 ms behind the newest sample.
 
 ### Meters and A/B
 
@@ -92,7 +99,7 @@ flowchart TB
   end
   subgraph Rust["Rust (Tauri commands and events)"]
     E["engine.rs<br/>start · stop · restart · retry"]
-    MO["model.rs<br/>download · SHA-256"]
+    MO["model.rs<br/>two models · download · SHA-256"]
     V["vmic.rs<br/>driver setup per system"]
     T["mictest.rs<br/>level meter · test recording"]
     TR["tray.rs<br/>icon · menu · widget position"]
@@ -103,7 +110,7 @@ flowchart TB
   L --> C["hush-core"]
 ```
 
-- **One session at a time.** A change of microphone or quality restarts the session after
+- **One session at a time.** A change of microphone, model or quality restarts the session after
   the old one has released its devices. The Hush drivers accept one writer, so the new
   session never races the old one.
 - **Recovery.** If a device disappears, the engine retries after 2, 4 and 8 seconds, then
@@ -111,8 +118,11 @@ flowchart TB
   system default and says so.
 - **Low idle cost.** Meters stop when no window shows them. Animations are CSS transforms
   and stop when the window is hidden. The window has no work to do while you are in a call.
-- **The model** is downloaded once (Hugging Face mirror first, NVIDIA's pinned revision
-  second), hashed while it downloads and kept only when the SHA-256 matches.
+- **The models** are downloaded once, hashed while they download and kept only when the
+  SHA-256 matches. DeepFilterNet 3 (8 MB) comes from the DeepFilterNet repository at tag
+  v0.5.6, then its jsDelivr mirror. RE-USE (54 MB) comes from the Hugging Face mirror, then
+  NVIDIA's pinned revision. Settings from Hush AI 1.0 keep RE-USE; new installs start with
+  DeepFilterNet 3.
 - **Updates** come from GitHub Releases. Each update is signed; the app checks the
   signature before it installs.
 - **Single instance.** A second start shows the running window.

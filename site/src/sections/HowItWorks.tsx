@@ -93,12 +93,12 @@ export function HowItWorks() {
                 </span>
               }
               title="Hush engine, on your CPU"
-              body="NVIDIA's Real-time RE-USE model in native Rust. Nothing leaves your computer."
+              body="DeepFilterNet 3 or NVIDIA's Real-time RE-USE, in native Rust. Nothing leaves your computer."
             >
               <div className="mt-4 flex flex-wrap justify-center gap-1.5">
                 <span className="chip">Rust</span>
                 <span className="chip">No GPU</span>
-                <span className="chip">20 ms frames</span>
+                <span className="chip">10–20 ms frames</span>
               </div>
             </Node>
             <Connector kind="clean" />
