@@ -23,6 +23,9 @@ export function Window({ title, children, className = "" }: { title: string; chi
   );
 }
 
+/** The cursor moves as one transform string, which the browser animates off the main thread. */
+const at = (x: number, y: number, scale = 1) => `translate(${x}px, ${y}px) scale(${scale})`;
+
 /** A looping demo: open the microphone menu, pick Hush AI Microphone. */
 export function ChooseMicDemo({ app = "Your meeting app", active }: { app?: string; active: boolean }) {
   const [scope, animate] = useAnimate();
@@ -44,20 +47,20 @@ export function ChooseMicDemo({ app = "Your meeting app", active }: { app?: stri
           await sleep(500);
           continue;
         }
-        await animate("[data-menu]", { opacity: 0, y: -6, scale: 0.98 }, { duration: 0 });
+        await animate("[data-menu]", { opacity: 0, transform: "translateY(-6px) scale(0.98)" }, { duration: 0 });
         await animate("[data-picked]", { opacity: 0 }, { duration: 0 });
         await animate("[data-current]", { opacity: 1 }, { duration: 0 });
-        await animate("[data-cursor]", { x: 250, y: 150, opacity: 0 }, { duration: 0 });
+        await animate("[data-cursor]", { transform: at(250, 150), opacity: 0 }, { duration: 0 });
         await animate("[data-cursor]", { opacity: 1 }, { duration: 0.3 });
-        await animate("[data-cursor]", { x: 230, y: 74 }, { duration: 0.9, ease: [0.4, 0, 0.2, 1] });
-        await animate("[data-cursor]", { scale: 0.85 }, { duration: 0.1 });
-        animate("[data-cursor]", { scale: 1 }, { duration: 0.15 });
-        await animate("[data-menu]", { opacity: 1, y: 0, scale: 1 }, { duration: 0.28, ease: [0.2, 0.9, 0.1, 1] });
-        await animate("[data-cursor]", { x: 150, y: 150 }, { duration: 0.8, ease: [0.4, 0, 0.2, 1] });
+        await animate("[data-cursor]", { transform: at(230, 74) }, { duration: 0.9, ease: [0.4, 0, 0.2, 1] });
+        await animate("[data-cursor]", { transform: at(230, 74, 0.85) }, { duration: 0.1 });
+        animate("[data-cursor]", { transform: at(230, 74) }, { duration: 0.15 });
+        await animate("[data-menu]", { opacity: 1, transform: "translateY(0px) scale(1)" }, { duration: 0.28, ease: [0.2, 0.9, 0.1, 1] });
+        await animate("[data-cursor]", { transform: at(150, 150) }, { duration: 0.8, ease: [0.4, 0, 0.2, 1] });
         await animate("[data-hush]", { backgroundColor: "rgba(255,224,166,.55)" }, { duration: 0.2 });
-        await animate("[data-cursor]", { scale: 0.85 }, { duration: 0.1 });
-        animate("[data-cursor]", { scale: 1 }, { duration: 0.15 });
-        animate("[data-menu]", { opacity: 0, y: -6, scale: 0.98 }, { duration: 0.2 });
+        await animate("[data-cursor]", { transform: at(150, 150, 0.85) }, { duration: 0.1 });
+        animate("[data-cursor]", { transform: at(150, 150) }, { duration: 0.15 });
+        animate("[data-menu]", { opacity: 0, transform: "translateY(-6px) scale(0.98)" }, { duration: 0.2 });
         await animate("[data-current]", { opacity: 0 }, { duration: 0.12 });
         await animate("[data-picked]", { opacity: 1 }, { duration: 0.25 });
         await animate("[data-hush]", { backgroundColor: "rgba(255,224,166,0)" }, { duration: 0 });

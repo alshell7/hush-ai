@@ -9,13 +9,52 @@ import { sleep, useActive, useMediaQuery } from "../lib/hooks";
 const APP_W = 940;
 const APP_H = 640;
 
+/**
+ * The app pauses its simulated meters and clocks while its document is hidden. A frame that
+ * has scrolled away is not hidden as far as the browser is concerned, so tell the app so:
+ * the frame's document reports "hidden" while it is off-screen, a visibilitychange event
+ * lets the app notice, and its CSS animations pause too. Same-origin only; anything else is
+ * left alone. Returns the function to call when the frame comes or goes.
+ */
+function followVisibility(frame: HTMLIFrameElement, hidden: () => boolean) {
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) return () => undefined;
+    const state = () => (hidden() ? "hidden" : document.visibilityState);
+    Object.defineProperty(doc, "visibilityState", { configurable: true, get: state });
+    Object.defineProperty(doc, "hidden", { configurable: true, get: () => state() === "hidden" });
+    const pause = doc.createElement("style");
+    pause.textContent = "*, *::before, *::after { animation-play-state: paused !important; }";
+    doc.head.append(pause);
+    return () => {
+      pause.media = hidden() ? "all" : "not all";
+      doc.dispatchEvent(new Event("visibilitychange"));
+    };
+  } catch {
+    return () => undefined;
+  }
+}
+
+/** True once the app has drawn its window: some top-level part of it shows text, fully faded in. */
+function appPainted(frame: HTMLIFrameElement) {
+  const win = frame.contentWindow;
+  const root = frame.contentDocument?.getElementById("root");
+  if (!win || !root) return false;
+  return Array.from(root.children).some((el) => !!el.textContent?.trim() && Number(win.getComputedStyle(el).opacity) > 0.95);
+}
+
 function LiveWindow() {
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [status, setStatus] = useState<"waiting" | "ready" | "failed">("waiting");
   const [canEmbed, setCanEmbed] = useState(false);
+  const [load, setLoad] = useState(false);
   const desktop = useMediaQuery("(min-width: 1024px)");
-  const visible = useActive(frameRef, "300px");
+  const near = useActive(frameRef, "600px");
+  const onScreen = useActive(frameRef);
+  const offscreen = useRef(true);
+  offscreen.current = !onScreen;
+  const notify = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     // Never nest the site inside itself (a dev server answers unknown paths with this page).
@@ -27,14 +66,40 @@ function LiveWindow() {
     return () => ro.disconnect();
   }, []);
 
-  // Show the frame only once the app has actually drawn something; anything else (a 404
-  // page, this site served as a fallback, a broken build) keeps the static picture.
+  // Starting the app takes the main thread for a moment, so start it once the window is
+  // close and the page has stopped scrolling, never in the middle of a scroll.
+  useEffect(() => {
+    if (load || !near || !desktop || !canEmbed) return;
+    let timer = window.setTimeout(() => setLoad(true), 250);
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => setLoad(true), 250);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [load, near, desktop, canEmbed]);
+
+  // Off-screen, the app stops its meters, so the demo costs nothing while you read on.
+  useEffect(() => {
+    notify.current();
+  }, [onScreen]);
+
+  // Show the frame only once the app has actually drawn its window; anything else (a 404
+  // page, this site served as a fallback, a broken build) keeps the static picture. The
+  // frame is never display:none: a frame hidden that way stops drawing and could reappear
+  // blank, so it stays laid out and fades over the picture only when it is ready.
   const onLoad = async (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    const frame = e.currentTarget;
     try {
-      const doc = e.currentTarget.contentDocument;
+      const doc = frame.contentDocument;
       const root = doc?.getElementById("root");
       if (!doc || !root || doc.querySelector('meta[name="hush-site"]')) return setStatus("failed");
-      for (let i = 0; i < 40 && !root.childElementCount; i++) await sleep(150);
+      notify.current = followVisibility(frame, () => offscreen.current);
+      notify.current();
+      for (let i = 0; i < 80 && !appPainted(frame); i++) await sleep(100);
       setStatus(root.childElementCount ? "ready" : "failed");
     } catch {
       setStatus("failed");
@@ -55,20 +120,20 @@ function LiveWindow() {
       }}
     >
       <div className="absolute left-0 top-0 origin-top-left" style={{ width: APP_W, height: APP_H, transform: `scale(${scale})` }}>
-        <div aria-hidden={ready} className="transition-opacity duration-500" style={{ opacity: ready ? 0 : 1 }}>
+        {/* The app fades in over the picture, which stays opaque underneath until the fade is
+            done, so the window never shows the page through it. */}
+        <div aria-hidden={ready} style={{ visibility: ready ? "hidden" : "visible", transition: ready ? "visibility 0s linear .5s" : undefined }}>
           <AppScreen />
         </div>
-        {showFrame && (
+        {showFrame && load && (
           <iframe
             src="./app/index.html?platform=macos"
             title="Hush AI app demo"
-            loading="lazy"
             width={APP_W}
             height={APP_H}
             onLoad={onLoad}
             className="absolute inset-0 border-0 transition-opacity duration-500"
-            // Off-screen, the hidden frame stops rendering, so the demo costs nothing.
-            style={{ opacity: ready ? 1 : 0, display: ready && !visible ? "none" : "block", colorScheme: "light" }}
+            style={{ opacity: ready ? 1 : 0, colorScheme: "light" }}
           />
         )}
         <div aria-hidden className="pointer-events-none absolute left-[20px] top-[21px] flex gap-2">

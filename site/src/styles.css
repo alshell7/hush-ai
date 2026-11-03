@@ -1089,6 +1089,10 @@
 .cal-panel.is-on .cal-check-b {
   animation: cal-in 0.5s var(--h-ease) 1.6s both;
 }
+/* The spinner turns only while its step is showing. */
+.cal-panel.is-on .cal-spin {
+  animation: h-spin 1s linear infinite;
+}
 .cal-panel.is-on .cal-row {
   animation: cal-in 0.5s var(--h-ease) both;
 }
@@ -1746,6 +1750,56 @@
 [data-paused="true"],
 [data-paused="true"] * {
   animation-play-state: paused !important;
+}
+
+/* The browser skips style, layout and paint for home-page sections far from the screen, so
+   each frame only does the work for what is near it. Until a section has been drawn once it
+   holds its usual content height (below, measured at 375, 800 and 1440 px wide; padding comes
+   on top), then its real one. The first section is always on screen, and the live app demo
+   (#app) stays rendered so its frame keeps drawing. */
+main > section + section:not(#app) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--cv-h, 1200px);
+}
+#demo { --cv-h: 899px; }
+#built { --cv-h: 2802px; }
+#compare { --cv-h: 1270px; }
+#features { --cv-h: 3138px; }
+#apps { --cv-h: 933px; }
+#enhance { --cv-h: 1129px; }
+#translate { --cv-h: 1915px; }
+#calendar { --cv-h: 1977px; }
+#benchmarks { --cv-h: 2456px; }
+#roadmap { --cv-h: 828px; }
+#faq { --cv-h: 1422px; }
+#download { --cv-h: 1565px; }
+@media (min-width: 640px) {
+  #demo { --cv-h: 762px; }
+  #built { --cv-h: 3144px; }
+  #compare { --cv-h: 887px; }
+  #features { --cv-h: 2231px; }
+  #apps { --cv-h: 1033px; }
+  #enhance { --cv-h: 942px; }
+  #translate { --cv-h: 1311px; }
+  #calendar { --cv-h: 1479px; }
+  #benchmarks { --cv-h: 1836px; }
+  #roadmap { --cv-h: 759px; }
+  #faq { --cv-h: 1192px; }
+  #download { --cv-h: 1028px; }
+}
+@media (min-width: 1024px) {
+  #demo { --cv-h: 773px; }
+  #built { --cv-h: 3091px; }
+  #compare { --cv-h: 873px; }
+  #features { --cv-h: 1480px; }
+  #apps { --cv-h: 631px; }
+  #enhance { --cv-h: 606px; }
+  #translate { --cv-h: 921px; }
+  #calendar { --cv-h: 1220px; }
+  #benchmarks { --cv-h: 1529px; }
+  #roadmap { --cv-h: 825px; }
+  #faq { --cv-h: 1202px; }
+  #download { --cv-h: 959px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

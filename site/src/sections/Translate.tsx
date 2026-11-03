@@ -8,11 +8,11 @@ import { useLoop } from "../lib/hooks";
 
 const SETUP = [
   { title: "Bring your own Gemini API key", body: "Hush opens Google AI Studio's key page, notices the key you copy, checks it with Google and keeps it in Hush's settings folder. Google has a free tier." },
-  { title: "Pick the languages", body: "“I speak” and “They hear”, from more than 70 languages, with a swap button." },
-  { title: "Turn it on in your call", body: "Hush asks once, then your voice goes to Gemini, cleaned or as it is, and the translation comes out of Hush AI Microphone. Nothing changes in Zoom, Meet or Teams." },
+  { title: "Pick the languages", body: "“I speak” and “They speak”, from more than 70 languages, with a swap button. Both ways, or just your voice, or just theirs." },
+  { title: "Turn it on in your call", body: "Hush asks once. They hear you in their language through Hush AI Microphone; you read them in yours, or hear a voice-over through Hush AI Speaker. Nothing changes in Zoom, Meet or Teams." },
 ];
 
-const SWITCHES = ["A toggle in the app, with a history of every phrase in both languages", "A row in the tray or menu-bar widget, with a swap", "“Translate my voice” in the tray menu"];
+const SWITCHES = ["The notch at the top of your screen, with both sides' captions", "The Talk tab, where every call is kept as a conversation you can search and export", "“Translate my voice” and “Translate their voice” in the tray menu"];
 
 function Bars({ className, n = 18 }: { className: string; n?: number }) {
   return (
@@ -125,10 +125,10 @@ export function Translate() {
           eyebrow="New · Live Translate (Preview)"
           title={
             <>
-              Speak your language. <span className="opal-text">They hear theirs.</span>
+              Talk in your language. <span className="opal-text">Understand theirs.</span>
             </>
           }
-          sub="Turn on Live Translate and the call hears you in another language, in a natural translated voice. It works in every app through Hush AI Microphone, with Google's Gemini Live Translate model."
+          sub="Live Translate works both ways: the call hears you in their language, in a natural voice, and you read (or hear) them in yours. It works in every app through Hush AI Microphone and Hush AI Speaker, with Google's Gemini Live Translate model."
         />
 
         <div className="mt-12 grid items-start gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
@@ -137,7 +137,7 @@ export function Translate() {
             <div className="mt-4 rounded-[20px] p-5 text-[14.5px] leading-relaxed text-ink-2" style={{ background: "rgba(255,174,148,.14)", boxShadow: "inset 0 0 0 1px rgba(232,115,90,.22)" }}>
               <p className="font-[650] text-ink">The one Hush feature that is not on your computer</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
-                <li>While Live Translate is on, your voice goes to Google to be translated. Hush itself has no server.</li>
+                <li>While Live Translate is on, the voices you chose go to Google to be translated. Hush itself has no server.</li>
                 <li>Noise cancellation, recordings and everything else stay on your computer.</li>
                 <li>The translation follows about a sentence behind you: Gemini translates phrase by phrase.</li>
                 <li>It needs an internet connection.</li>

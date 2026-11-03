@@ -61,8 +61,8 @@ const FEATURES: Feature[] = [
   {
     id: "tray",
     icon: <TrayIcon size={18} />,
-    title: "Tray and menu-bar widget",
-    body: <>Turn Hush on or off, switch microphones and glance at your levels, without opening the window.</>,
+    title: "The notch",
+    body: <>Hush lives at the top of your screen, wakes up in calls and opens when you point at it. Prefer a tray widget? One setting. Both can hide from screen sharing.</>,
     art: <TrayArt />,
     span: "",
   },

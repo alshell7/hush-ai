@@ -114,7 +114,7 @@ const PANELS: ReactNode[] = [
   <Popup key="3">
     <div className="relative h-[86px]">
       <div className="cal-check-a absolute inset-0 flex items-center gap-3 rounded-[14px] px-3" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
-        <span className="h-6 w-6 rounded-full" style={{ background: "var(--h-opal-conic)", animation: "h-spin 1s linear infinite", WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px))", mask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px))" }} />
+        <span className="cal-spin h-6 w-6 rounded-full" style={{ background: "var(--h-opal-conic)", WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px))", mask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px))" }} />
         <span className="text-[13px] font-[600] text-ink-2">Checking the address…</span>
       </div>
       <div className="cal-check-b absolute inset-0 flex items-center gap-3 rounded-[14px] px-3" style={{ background: "linear-gradient(100deg, rgba(201,242,212,.6), rgba(155,230,224,.3))" }}>
@@ -214,6 +214,8 @@ function Flow() {
       <div
         ref={stageRef}
         aria-hidden
+        // The walkthrough stands still off-screen; so do its animations.
+        data-paused={visible ? "false" : "true"}
         className="relative order-first h-[330px] overflow-hidden lg:order-none rounded-[28px] px-3 sm:h-[340px] sm:px-6"
         style={{ background: "linear-gradient(150deg, #fff1ea, #fff7e6 40%, #eefaf0 75%, #e5f7f5)", boxShadow: "var(--h-inner), var(--h-shadow-2)" }}
       >
