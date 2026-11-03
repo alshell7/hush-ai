@@ -43,7 +43,7 @@ jobs:
           cache-on-failure: true
       - name: Voice model (cached)
         id: model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: models/model.safetensors
           key: model-6eac4e8cc721f99a
@@ -55,7 +55,7 @@ jobs:
           curl -fL --retry 3 -o "$HUSH_MODEL" https://huggingface.co/nvidia/Real-time_RE-USE/resolve/4c0c186272ca853cd18d832fc5c28777b62f32d1/model.safetensors
       - name: DeepFilterNet 3 model (cached)
         id: dfn-model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: models/DeepFilterNet3_onnx.tar.gz
           key: dfn-model-c94d91f70911001c
