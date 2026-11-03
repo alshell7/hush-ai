@@ -119,8 +119,8 @@ flowchart TB
 - **Low idle cost.** Meters stop when no window shows them. Animations are CSS transforms
   and stop when the window is hidden. The window has no work to do while you are in a call.
 - **The models** are downloaded once, hashed while they download and kept only when the
-  SHA-256 matches. DeepFilterNet 3 (8 MB) comes from the DeepFilterNet repository at tag
-  v0.5.6, then its jsDelivr mirror. RE-USE (54 MB) comes from the Hugging Face mirror, then
+  SHA-256 matches. DeepFilterNet 3 (8 MB) comes from the Hugging Face mirror, then the
+  DeepFilterNet repository at tag v0.5.6. RE-USE (54 MB) comes from the Hugging Face mirror, then
   NVIDIA's pinned revision. Settings from Hush AI 1.0 keep RE-USE; new installs start with
   DeepFilterNet 3.
 - **Updates** come from GitHub Releases. Each update is signed; the app checks the

@@ -111,6 +111,5 @@ headphones, or your speakers will echo.
 ## Privacy
 
 Hush processes audio only on your computer. It connects to the internet to download a
-model (GitHub or jsDelivr for DeepFilterNet 3, Hugging Face for RE-USE) and to check for
-updates (GitHub). It sends no audio, no usage data and
+model (Hugging Face, or GitHub as a fallback) and to check for updates (GitHub). It sends no audio, no usage data and
 no crash reports.

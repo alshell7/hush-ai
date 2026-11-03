@@ -13,7 +13,7 @@ const FEATURES = [
     icon: <BoltIcon size={22} />,
     tint: "#fff0cc",
     title: "Real time",
-    body: "10–20 ms frames and about 60–80 ms of delay, plus your device's own buffers.",
+    body: "20 ms frames and about 60–80 ms of delay, plus your device's own buffers.",
   },
   {
     icon: <CpuIcon size={22} />,
@@ -49,7 +49,7 @@ const FEATURES = [
     icon: <TargetIcon size={22} />,
     tint: "#ffe2d6",
     title: "Proven accuracy",
-    body: "DeepFilterNet 3 output is identical to its official Rust inference. RE-USE matches NVIDIA's GPU reference at 113–118 dB waveform SNR.",
+    body: "On short speech, CPU output matches NVIDIA's GPU reference at 113–118 dB waveform SNR. 7 of 7 NVIDIA regression cases pass.",
   },
 ];
 
@@ -65,7 +65,7 @@ export function Features() {
               Quiet, fast and <span className="opal-text">yours</span>
             </>
           }
-          sub="Hush runs DeepFilterNet 3 or NVIDIA's Real-time RE-USE speech model in native Rust, right on your CPU. No Python, no GPU, no cloud."
+          sub="Hush runs NVIDIA's Real-time RE-USE speech model in native Rust, right on your CPU. No Python, no GPU, no cloud."
         />
         <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (

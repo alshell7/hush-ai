@@ -153,11 +153,11 @@ function ModelStep({ onNext }: { onNext: () => void }) {
     }
   };
 
-  // RE-USE needs its license accepted, also when its model is already on this computer.
-  const blocked = engine === "reuse" && !agreed;
-  const accepted = engine === "reuse" && settings.licenseAccepted;
+  // The license terms must be accepted, also when the model is already on this computer.
+  const blocked = !agreed;
+  const accepted = settings.licenseAccepted;
   const next = async () => {
-    if (engine === "reuse" && !settings.licenseAccepted) await saveSettings({ licenseAccepted: true });
+    if (!settings.licenseAccepted) await saveSettings({ licenseAccepted: true });
     onNext();
   };
 
@@ -193,7 +193,7 @@ function ModelStep({ onNext }: { onNext: () => void }) {
         })}
       </div>
       <div className="rounded-2xl bg-white/70 p-3.5" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
-        <LicenseNote engine={engine} agreed={agreed} onAgree={setAgreed} disabled={downloading || (done && accepted)} />
+        <LicenseNote agreed={agreed} onAgree={setAgreed} disabled={downloading || (done && accepted)} />
       </div>
       <div className="flex items-center gap-3">
         {done ? (

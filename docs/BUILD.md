@@ -34,7 +34,7 @@ repository root (a development build finds them there):
 
 ```sh
 mkdir -p models
-curl -fL -o models/DeepFilterNet3_onnx.tar.gz https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz
+curl -fL -o models/DeepFilterNet3_onnx.tar.gz https://huggingface.co/alshell7/hush-ai/resolve/main/models/DeepFilterNet3_onnx-v0.5.6.tar.gz
 curl -fL -o models/model.safetensors https://huggingface.co/alshell7/hush-ai/resolve/main/models/realtime-reuse-4c0c186.safetensors
 ```
 
@@ -130,5 +130,7 @@ app downloads (`models/realtime-reuse-4c0c186.safetensors`, NVIDIA revision `4c0
 NVIDIA license and the model card. The app falls back to NVIDIA's repository at the same
 revision. Both are checked against the same SHA-256.
 
-DeepFilterNet 3 comes from the DeepFilterNet repository at tag v0.5.6
-(`raw.githubusercontent.com`), then from jsDelivr's copy of the same tag, with one SHA-256.
+The same repository holds the DeepFilterNet 3 archive
+(`models/DeepFilterNet3_onnx-v0.5.6.tar.gz`) with its MIT and Apache-2.0 licenses. The app
+falls back to the DeepFilterNet repository at tag v0.5.6, then jsDelivr's copy of that tag.
+All three are checked against one SHA-256.

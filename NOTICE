@@ -8,9 +8,11 @@ the parts listed below.
 Voice models (not in this repository)
 
 DeepFilterNet 3. The app downloads DeepFilterNet3_onnx.tar.gz (SHA-256
-c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616) from the DeepFilterNet
-repository at tag v0.5.6 (https://github.com/Rikorose/DeepFilterNet, models/), or from the
-jsDelivr mirror of the same tag. The file is part of that repository, which is licensed
+c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616) from
+https://huggingface.co/alshell7/hush-ai/resolve/main/models/DeepFilterNet3_onnx-v0.5.6.tar.gz,
+or from the DeepFilterNet repository at tag v0.5.6
+(https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz).
+The file is part of that repository, which is licensed
 under MIT OR Apache-2.0 (LICENSE, LICENSE-MIT and LICENSE-APACHE at its root; Copyright (c)
 2021 Hendrik Schröter). The repository does not give the model a separate license.
 DeepFilterNet 3 is described in Schröter et al., "DeepFilterNet: Perceptually Motivated

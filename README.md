@@ -40,10 +40,10 @@ No account. No cloud. No subscription. Your voice never leaves your computer.
 |  |  |
 | --- | --- |
 | 🔒 **Private** | Everything runs on your CPU. Hush sends no audio, no telemetry and has no servers. |
-| ⚡ **Real time** | 10–20 ms frames, about 60–80 ms from your microphone to your call. |
-| ⚙️ **Light on CPU** | The default model, DeepFilterNet 3, needs one thread: about 7% of one laptop core offline, 11–13% live. Windows "Pro Audio" priority keeps your voice smooth when the computer is busy. |
+| ⚡ **Real time** | 20 ms frames, about 60–80 ms from your microphone to your call. |
+| ⚙️ **Self-tuning** | Automatic threads use the fewest CPU cores that keep up. Windows "Pro Audio" priority keeps your voice smooth when the computer is busy. |
 | 🎙️ **Works everywhere** | One virtual microphone for every app: Hush AI Microphone. |
-| 🎯 **Proven quality** | Two models, both unchanged: [DeepFilterNet 3](https://github.com/Rikorose/DeepFilterNet) (default, MIT or Apache-2.0), identical to its official Rust inference, and NVIDIA's [Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE), which matches NVIDIA's GPU reference at 113–118 dB. |
+| 🎯 **Proven quality** | NVIDIA's [Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE) speech model with its original weights, in native Rust. The output matches NVIDIA's GPU reference at 113–118 dB. |
 | 🧸 **Pleasant** | A calm app, a tray and menu bar widget, and updates that install themselves. |
 | 🔓 **Open source** | Apache-2.0 app and engine. Read every line. |
 
@@ -66,9 +66,8 @@ them back with and without Hush.
 | Intel Mac (macOS 11+) | [`…_x64.dmg`](https://github.com/alshell7/hush-ai/releases/latest) |
 | Linux (PipeWire or PulseAudio) | [`.AppImage`, `.deb`, `.rpm`](https://github.com/alshell7/hush-ai/releases/latest) |
 
-The installers are small. On first start, Hush AI downloads the voice model you choose and
-checks its SHA-256: DeepFilterNet 3 (8 MB, from its GitHub repository) or NVIDIA RE-USE
-(54 MB, from [Hugging Face](https://huggingface.co/alshell7/hush-ai)).
+The installers are small. On first start, Hush AI downloads the voice model (54 MB) from
+[Hugging Face](https://huggingface.co/alshell7/hush-ai) and checks its SHA-256.
 
 > [!NOTE]
 > The apps are not code-signed yet, so Windows and macOS ask once before the first start.
@@ -81,8 +80,7 @@ checks its SHA-256: DeepFilterNet 3 (8 MB, from its GitHub repository) or NVIDIA
   <img src="assets/screenshots/welcome.png" alt="Hush AI welcome screen: Silence the noise. Keep your voice." width="720">
 </p>
 
-1. **Open Hush AI.** Choose a voice model (Efficient, or NVIDIA RE-USE) and pick your
-   microphone.
+1. **Open Hush AI.** It downloads the voice model and asks which microphone you use.
 2. **Get the Hush AI Microphone.**
    - **macOS:** one click and your password. Hush installs its own small audio driver.
    - **Windows:** install the free [VB-CABLE](https://vb-audio.com/Cable/) by VB-Audio
@@ -101,20 +99,19 @@ checks its SHA-256: DeepFilterNet 3 (8 MB, from its GitHub repository) or NVIDIA
 | OBS Studio | Settings › Audio › Mic/Auxiliary Audio |
 
 Hush AI then lives in your tray (Windows, Linux) or menu bar (macOS). Click the mochi to
-turn noise cancellation on or off, change the microphone or the RE-USE quality.
+turn noise cancellation on or off, change the microphone or the quality.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  mic["🎙️ Your microphone"] --> engine["Hush engine<br/>DeepFilterNet 3 or NVIDIA RE-USE · Rust · your CPU"]
+  mic["🎙️ Your microphone"] --> engine["Hush engine<br/>NVIDIA RE-USE · Rust · your CPU"]
   engine --> vmic["Hush AI Microphone<br/>(virtual device)"]
   vmic --> apps["Zoom · Meet · Teams<br/>Discord · OBS · …"]
 ```
 
-- The **engine** (`crates/hush-core`) runs DeepFilterNet 3 one 10 ms frame at a time with
-  its official Rust inference (libDF and tract), or the Mamba-based RE-USE model one 20 ms
-  frame at a time, in plain Rust with SIMD. No Python, no GPU, no ONNX runtime.
+- The **engine** (`crates/hush-core`) runs the Mamba-based RE-USE model one 20 ms frame
+  at a time, in plain Rust with SIMD. No Python, no GPU, no ONNX runtime.
 - The **app** (`app/`, Tauri 2) opens your microphone, feeds the engine on a real-time
   thread and writes the clean voice to the virtual microphone. The model never runs in
   the audio callback, so a slow frame can never glitch the device.
@@ -127,47 +124,39 @@ delay budget.
 
 ## Performance
 
-**DeepFilterNet 3** (default) runs on one thread: 0.71 ms per 10 ms frame offline (7% of
-one core) and 11–13% of one core through the live worker, on an 8-core x64 laptop that was
-busy with other work.
+One frame is 20 ms of audio, so each frame must finish in less than 20 ms.
 
-**RE-USE:** one frame is 20 ms of audio, so each frame must finish in less than 20 ms.
-
-| RE-USE quality | Apple M1, 2 threads | Intel x64 (cloud), 4 threads |
+| Quality | Apple M1, 2 threads | Intel x64 (cloud), 4 threads |
 | --- | ---: | ---: |
 | **Light** (16 kHz, best for calls) | **11.7 ms** p99 | **17.1 ms** p99 |
 | **Balanced** (24 kHz) | 21.3 ms p99 | 21.4 ms p99 |
 | **Studio** (48 kHz, full band) | 36.8 ms p99 | 23.7 ms p99 (8 threads) |
 
 - **Delay:** about 60–80 ms plus device buffers (VB-CABLE adds about 84 ms on Windows).
-- **Memory (RE-USE):** 80–250 MB, mostly the model. It does not grow: 60 minutes with a USB headset
+- **Memory:** 80–250 MB, mostly the model. It does not grow: 60 minutes with a USB headset
   gave 75.65 → 75.63 MB and no lost audio.
-- **CPU:** the app shows the live engine load. For RE-USE, Automatic threads add a core only
-  when one is not enough.
+- **CPU:** the app shows the live engine load. Automatic threads add a core only when one
+  is not enough.
 
 [Performance](docs/PERFORMANCE.md) has every measurement and how to repeat it.
 
 ## How it compares
 
-Hush's two engines against the official DeepFilterNet 3 binary and RNNoise on the
-VoiceBank-DEMAND test set (824 files), scored at 16 kHz. Higher is better; **bold** is the
-best. CPU is for 1 thread ([Comparison](docs/COMPARISON.md) has both runs).
+Hush (NVIDIA RE-USE) against DeepFilterNet 3 and RNNoise on the VoiceBank-DEMAND test set
+(824 files), scored at 16 kHz. Higher is better; **bold** is the best.
 
 | System | PESQ | STOI | SI-SDR | DNSMOS OVRL | CPU per audio second (1 thread) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Noisy input | 1.97 | 0.921 | 8.4 dB | 2.70 | – |
 | RNNoise | 2.11 | 0.890 | 12.3 dB | 2.94 | 5% |
-| Hush RE-USE Light (16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
-| Hush RE-USE, 16 kHz, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
-| **Hush DeepFilterNet 3** (app default) | **3.10** | **0.945** | **19.0 dB** | 3.18 | 7% (busier run) |
-| DeepFilterNet 3, official binary | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
+| **Hush Light** (app default: 16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
+| Hush, 16 kHz, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
+| DeepFilterNet 3 | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
 
 What this shows, plainly:
 
-- **Hush's DeepFilterNet 3 engine gives the official results.** Its output equals the
-  official binary on every file to within 16-bit rounding. It is the app default.
-- **Both engines are far ahead of RNNoise** on every metric.
-- **DeepFilterNet 3 scores higher than RE-USE Light on every metric** and uses about 15 times
+- **Hush is far ahead of RNNoise** on every metric.
+- **DeepFilterNet 3 scores higher than Hush Light on every metric** and uses about 15 times
   less CPU. With 8 layers, RE-USE has the best DNSMOS (a neural estimate of what listeners
   think), but DeepFilterNet 3 still leads on PESQ, STOI and SI-SDR.
 - **Hush reproduces NVIDIA's published RE-USE scores** (PESQ 2.77 against 2.76 in the paper).
@@ -201,7 +190,7 @@ npm install
 npm run tauri dev
 ```
 
-The app downloads the chosen model on first start. To run the engine tests, see
+The app downloads the model on first start. To run the engine tests, see
 [Build and release](docs/BUILD.md).
 
 ## Use the engine in your own project
@@ -217,9 +206,8 @@ let mut clean = Vec::new();
 denoiser.process_into(&noisy_chunk, &mut clean)?; // any chunk size, mono f32
 ```
 
-`hush_core::DeepFilter` runs DeepFilterNet 3 behind the same `Enhancer` interface.
-`hush_core::live::LiveWorker` drives either one with lock-free device queues, rate
-conversion, clock-drift control and meters. [More](crates/hush-core/README.md).
+`hush_core::live::LiveWorker` adds lock-free device queues, rate conversion, clock-drift
+control and meters. [More](crates/hush-core/README.md).
 
 ## FAQ
 
@@ -232,19 +220,17 @@ Yes. No account, no trial, no limits. The code is Apache-2.0.
 <details>
 <summary><b>Can I use it at work?</b></summary>
 
-Yes, with the default model. The app and the engine are Apache-2.0, and **DeepFilterNet 3**
-(the default, *Efficient*) is [MIT or Apache-2.0](https://github.com/Rikorose/DeepFilterNet#license).
-
-The optional **NVIDIA RE-USE** model comes with the
+The app and the engine are Apache-2.0. The **voice model** is NVIDIA's and comes with the
 [NVIDIA One-Way Noncommercial License](https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE):
-its weights are for **non-commercial research and educational use**. Hush AI asks you to
-accept this before it downloads them.
+the weights are for **non-commercial research and educational use**. Hush AI asks you to
+accept this before it downloads them. Check the license before you use Hush AI for
+commercial work.
 </details>
 
 <details>
 <summary><b>Does my voice leave my computer?</b></summary>
 
-No. Hush AI connects to the internet only to download a model once and to check GitHub
+No. Hush AI connects to the internet only to download the model once and to check GitHub
 for updates (you can turn this off).
 </details>
 
@@ -274,16 +260,13 @@ More in the [user guide](docs/GUIDE.md).
 | [User guide](docs/GUIDE.md) | Install, set up, use in apps, fix problems |
 | [Architecture](docs/ARCHITECTURE.md) | How audio flows through Hush |
 | [Performance](docs/PERFORMANCE.md) | CPU time, delay, long runs |
-| [Accuracy](docs/ACCURACY.md) | RE-USE against NVIDIA's GPU reference; DeepFilterNet 3 against libDF |
-| [Comparison](docs/COMPARISON.md) | Both engines vs the official DeepFilterNet 3 and RNNoise, measured |
+| [Accuracy](docs/ACCURACY.md) | Comparison with NVIDIA's GPU reference |
+| [Comparison](docs/COMPARISON.md) | Hush vs DeepFilterNet 3 and RNNoise, measured |
 | [Virtual microphone](virtual_mic/README.md) | The drivers for macOS and Windows |
 | [Build and release](docs/BUILD.md) | Develop, test, release |
 
 ## Credits
 
-- [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) by Hendrik Schröter et al.: the
-  DeepFilterNet 3 model and its Rust inference, libDF (MIT or Apache-2.0), with
-  [tract](https://github.com/sonos/tract) by Sonos (MIT or Apache-2.0).
 - [NVIDIA Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE): the speech
   enhancement model and weights (NVIDIA One-Way Noncommercial License).
 - [re-use-rs](https://github.com/altunenes/re-use-rs) by altunenes: the Rust port this

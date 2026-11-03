@@ -62,8 +62,8 @@ export function Footer() {
 
         <div className="mt-12 space-y-2 border-t border-line pt-6 text-[13px] leading-relaxed text-muted">
           <p>
-            The Hush AI app and engine are licensed under Apache-2.0. The default voice model, DeepFilterNet 3, is MIT or Apache-2.0. The optional NVIDIA RE-USE
-            weights are NVIDIA's, under the NVIDIA One-Way Noncommercial License, for non-commercial research and educational use only. Demo sample © NVIDIA.
+            The Hush AI app and engine are licensed under Apache-2.0. The voice model weights are NVIDIA's, under the NVIDIA One-Way Noncommercial License, for
+            non-commercial research and educational use only. Demo sample © NVIDIA.
           </p>
           <p>
             Hush AI is an independent open-source project. Zoom, Google Meet, Microsoft Teams, Discord, Slack, OBS Studio and VB-CABLE are trademarks of their

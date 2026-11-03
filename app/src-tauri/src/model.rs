@@ -26,7 +26,7 @@ pub struct Spec {
 }
 
 /// `DeepFilterNet3_onnx.tar.gz` from the DeepFilterNet repository at tag v0.5.6 (MIT or
-/// Apache-2.0, like the rest of that repository).
+/// Apache-2.0, like the rest of that repository): the Hush AI mirror first, then upstream.
 pub const DEEP_FILTER: Spec = Spec {
     sha256: "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616",
     size: 7_983_136,
@@ -34,6 +34,7 @@ pub const DEEP_FILTER: Spec = Spec {
     local: "DeepFilterNet3_onnx.tar.gz",
     env: "HUSH_DFN_MODEL",
     sources: &[
+        "https://huggingface.co/alshell7/hush-ai/resolve/main/models/DeepFilterNet3_onnx-v0.5.6.tar.gz",
         "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz",
         "https://cdn.jsdelivr.net/gh/Rikorose/DeepFilterNet@v0.5.6/models/DeepFilterNet3_onnx.tar.gz",
     ],
