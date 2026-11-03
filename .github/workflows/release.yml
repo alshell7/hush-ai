@@ -1,0 +1,92 @@
+name: Release
+
+# Push a tag like v1.2.0 to build every installer, sign the update files and publish a
+# GitHub release. The apps update themselves from the release's latest.json.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows x64, runner: windows-2025, target: x86_64-pc-windows-msvc }
+          - { name: Windows ARM64, runner: windows-2025, target: aarch64-pc-windows-msvc }
+          - { name: macOS Apple silicon, runner: macos-15, target: aarch64-apple-darwin }
+          - { name: macOS Intel, runner: macos-15, target: x86_64-apple-darwin }
+          - { name: Linux x64, runner: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+          cache-on-failure: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev
+      - name: macOS driver (Hush AI Microphone)
+        if: runner.os == 'macOS'
+        run: sh virtual_mic/macos/build.sh target
+      - run: npm ci
+        working-directory: app
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          args: --target ${{ matrix.target }}
+          tagName: ${{ github.ref_name }}
+          releaseName: Hush AI ${{ github.ref_name }}
+          releaseBody: |
+            **Download** the file for your computer below. On first launch, Windows and macOS ask once because the apps are not code-signed yet ([how to allow it](https://alshell7.github.io/hush-ai/#faq)).
+
+            | Computer | File |
+            | --- | --- |
+            | Windows (most PCs) | `Hush.AI_<version>_x64-setup.exe` |
+            | Windows on ARM | `Hush.AI_<version>_arm64-setup.exe` |
+            | Mac with Apple silicon | `Hush.AI_<version>_aarch64.dmg` |
+            | Intel Mac | `Hush.AI_<version>_x64.dmg` |
+            | Linux | `.AppImage`, `.deb` or `.rpm` |
+
+            Hush AI downloads the voice model on first run and keeps itself up to date.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+
+  publish:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Make the release public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false --latest

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
+  "gpu_trace_sha256": "5f80fddd799834eb627fcd49bec9ae8189eb3f02894896bbb2b7edbe897cd36c",
+  "nvidia_revision": "4c0c186272ca853cd18d832fc5c28777b62f32d1",
+  "source_mode": "controlled_frequency_inner_diagnostic",
+  "cases": 72,
+  "witnesses_per_operator": 2808,
+  "files": {
+    "convolution.f32": {
+      "sha256": "4298d79bcc6007cc9db4911bf4c2cb3de4a37ee66805de8a92aa290f030697a1",
+      "bytes": 112320
+    },
+    "gate.f32": {
+      "sha256": "86a8234d315fcc7854de1329cfebbc735baf56b64a48279509f79016883fcdbe",
+      "bytes": 33696
+    }
+  },
+  "selection": "Each direction/frame/layer: flat indices divisible by 4096, plus 1,255,256,511,512,767,768,123135; sorted without duplicates.",
+  "convolution_layout": "10 little-endian f32: bias, w0, x0, w1, x1, w2, x2, w3, x3, expected_gpu_xc",
+  "gate_layout": "3 little-endian f32: z, scan_plus_d, expected_gpu_gate",
+  "notes": "Original controlled T4 capture, not fitted outputs. Both operators reproduced exactly across all 72 captures before sampling. These witnesses are not an independent hardware reciprocal sweep or full-stream parity proof."
+}

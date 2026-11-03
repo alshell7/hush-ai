@@ -1,0 +1,125 @@
+; Hush AI Microphone: one virtual capture endpoint, based on the SysVAD tablet sample.
+; The Hush app sends enhanced audio to it through \\.\HushAIMicrophone.
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = MEDIA
+Provider    = %ProviderName%
+ClassGUID   = {4d36e96c-e325-11ce-bfc1-08002be10318}
+DriverVer   = 11/03/2026, 0.1.0.0
+CatalogFile = hushmic.cat
+PnpLockDown = 1
+
+[SourceDisksNames]
+222="Hush AI Microphone Driver Disk","",222
+
+[SourceDisksFiles]
+HushMic.sys=222
+
+[SignatureAttributes]
+HushMic.sys=SignatureAttributes.DRM
+
+[SignatureAttributes.DRM]
+DRMLevel=1300
+
+[Manufacturer]
+%MfgName%=HUSH,NT$ARCH$.10.0...22000
+
+[HUSH.NT$ARCH$.10.0...22000]
+%HUSHMIC.DeviceDesc%=HUSHMIC, Root\HushAIMicrophone
+
+[DestinationDirs]
+HUSHMIC.CopyList=13 ; 13 = the package's DriverStore directory
+
+[HUSHMIC.CopyList]
+HushMic.sys
+
+[HUSHMIC.AddReg]
+HKR,,AssociatedFilters,,"wdmaud,swmidi,redbook"
+HKR,,Driver,,HushMic.sys
+
+HKR,Drivers,SubClasses,,"wave,mixer"
+HKR,Drivers\wave\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\mixer\wdmaud.drv,Driver,,wdmaud.drv
+HKR,Drivers\wave\wdmaud.drv,Description,,%HUSHMIC.DeviceDesc%
+HKR,Drivers\mixer\wdmaud.drv,Description,,%HUSHMIC.DeviceDesc%
+
+; The endpoint name that Windows and apps show.
+HKR,%MEDIA_CATEGORIES%\%MicInCustomNameGUID%,Name,,%MicInCustomName%
+
+[HUSHMIC.I.WaveMicIn]
+AddReg=HUSHMIC.I.WaveMicIn.AddReg
+[HUSHMIC.I.WaveMicIn.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%HUSHMIC.WaveMicIn.szPname%
+
+[HUSHMIC.I.TopologyMicIn]
+AddReg=HUSHMIC.I.TopologyMicIn.AddReg
+[HUSHMIC.I.TopologyMicIn.AddReg]
+HKR,,CLSID,,%Proxy.CLSID%
+HKR,,FriendlyName,,%HUSHMIC.TopologyMicIn.szPname%
+; Pull (event-driven) mode, as in SysVAD.
+HKR,EP\0,%PKEY_AudioEndpoint_Association%,,%KSNODETYPE_ANY%
+HKR,EP\0,%PKEY_AudioEndpoint_Supports_EventDriven_Mode%,0x00010001,0x1
+
+[HUSHMIC.NT]
+Include=ks.inf,wdmaudio.inf
+Needs=KS.Registration, WDMAUDIO.Registration
+CopyFiles=HUSHMIC.CopyList
+AddReg=HUSHMIC.AddReg
+
+[HUSHMIC.NT.Interfaces]
+AddInterface=%KSCATEGORY_AUDIO%,    %KSNAME_WaveMicIn%, HUSHMIC.I.WaveMicIn
+AddInterface=%KSCATEGORY_REALTIME%, %KSNAME_WaveMicIn%, HUSHMIC.I.WaveMicIn
+AddInterface=%KSCATEGORY_CAPTURE%,  %KSNAME_WaveMicIn%, HUSHMIC.I.WaveMicIn
+AddInterface=%KSCATEGORY_AUDIO%,    %KSNAME_TopologyMicIn%, HUSHMIC.I.TopologyMicIn
+AddInterface=%KSCATEGORY_TOPOLOGY%, %KSNAME_TopologyMicIn%, HUSHMIC.I.TopologyMicIn
+
+[HUSHMIC.NT.Services]
+AddService=hushmic,0x00000002,HUSHMIC_Service_Inst
+
+[HUSHMIC_Service_Inst]
+DisplayName=%HUSHMIC.SvcDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%13%\HushMic.sys
+
+[HUSHMIC.NT.HW]
+AddReg = AUDIOHW.AddReg
+
+[AUDIOHW.AddReg]
+; FILE_DEVICE_SOUND
+HKR,,DeviceType,0x10001,0x0000001D
+; System and administrators: all access. Everyone: read, write, execute (as SysVAD).
+HKR,,Security,,"D:P(A;;GA;;;SY)(A;;GRGWGX;;;BA)(A;;GRGWGX;;;WD)(A;;GRGWGX;;;RC)"
+
+[HUSHMIC.NT.Wdf]
+KmdfService = hushmic, HUSHMIC_WdfSect
+[HUSHMIC_WdfSect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+; Non-localizable
+KSNAME_WaveMicIn="WaveMicIn"
+KSNAME_TopologyMicIn="TopologyMicIn"
+Proxy.CLSID="{17CCA71B-ECD7-11D0-B908-00A0C9223196}"
+KSCATEGORY_AUDIO="{6994AD04-93EF-11D0-A3CC-00A0C9223196}"
+KSCATEGORY_RENDER="{65E8773E-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_CAPTURE="{65E8773D-8F56-11D0-A3B9-00A0C9223196}"
+KSCATEGORY_REALTIME="{EB115FFC-10C8-4964-831D-6DCB02E6F23F}"
+KSCATEGORY_TOPOLOGY="{DDA54A40-1E4C-11D1-A050-405705C10000}"
+KSNODETYPE_ANY="{00000000-0000-0000-0000-000000000000}"
+PKEY_AudioEndpoint_Association="{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},2"
+PKEY_AudioEndpoint_Supports_EventDriven_Mode="{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E},7"
+MEDIA_CATEGORIES="MediaCategories"
+MicInCustomNameGUID={d48deb08-fd1c-4d1e-b821-9064d49ae96e}
+
+; Localizable
+ProviderName="Hush"
+MfgName="Hush"
+HUSHMIC.DeviceDesc="Hush"
+HUSHMIC.SvcDesc="Hush AI Microphone Driver"
+HUSHMIC.WaveMicIn.szPname="Hush AI Microphone"
+HUSHMIC.TopologyMicIn.szPname="Hush AI Microphone"
+MicInCustomName="Hush AI Microphone"

@@ -1,0 +1,38 @@
+Hush AI
+Copyright 2026 Hush AI contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE), except for
+the parts listed below.
+
+------------------------------------------------------------------------------------------
+Voice model (not in this repository)
+
+The app downloads NVIDIA Real-time RE-USE weights (model.safetensors, revision 4c0c186)
+from https://huggingface.co/alshell7/hush-ai or https://huggingface.co/nvidia/Real-time_RE-USE.
+They are licensed by NVIDIA under the NVIDIA One-Way Noncommercial License
+(https://github.com/NVlabs/HMAR/blob/main/LICENSE): non-commercial research and
+educational use only. The app shows this license and asks the user to accept it before
+the download.
+
+The sample recording in site/public/samples (noisy.mp3) comes from the same NVIDIA
+repository, and hush.mp3 is that recording processed by Hush AI. Both are under the
+NVIDIA One-Way Noncommercial License; see site/public/samples/LICENSE.
+
+------------------------------------------------------------------------------------------
+re-use-rs
+
+The engine in crates/hush-core grew from re-use-rs by altunenes
+(https://github.com/altunenes/re-use-rs), licensed under MIT OR Apache-2.0.
+
+------------------------------------------------------------------------------------------
+Microsoft SysVAD sample
+
+virtual_mic/windows is derived from the SysVAD virtual audio device driver sample in
+https://github.com/microsoft/Windows-driver-samples (commit f4c1ff8), licensed under the
+Microsoft Public License (MS-PL). See virtual_mic/windows/LICENSE-SysVAD.txt.
+
+------------------------------------------------------------------------------------------
+VB-CABLE
+
+On Windows, Hush AI works with VB-CABLE by VB-Audio Software (https://vb-audio.com/Cable/),
+which the user installs separately. Hush AI does not include or distribute VB-CABLE.

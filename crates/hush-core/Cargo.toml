@@ -1,0 +1,87 @@
+[package]
+name = "hush-core"
+description = "Real-time speech enhancement engine for Hush AI: NVIDIA RE-USE (Mamba) in plain Rust, on the CPU"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+keywords = ["speech-enhancement", "noise-cancellation", "mamba", "real-time", "audio"]
+categories = ["multimedia::audio"]
+
+[lib]
+name = "hush_core"
+
+[dependencies]
+eyre = "0.6"
+hound = "3.5"
+rayon = "1.12.0"
+realfft = "3"
+safetensors = ">=0.7, <0.9"
+rtrb = "0.3"
+cpal = { version = "0.15", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+matrixmultiply = "0.3"
+
+[dev-dependencies]
+cpu-time = "1"
+memory-stats = "1"
+serde_json = "1"
+
+[dependencies.burn]
+version = "0.22.1"
+default-features = false
+features = ["std", "extension"]
+optional = true
+
+[dependencies.burn-cubecl]
+version = "0.22.1"
+default-features = false
+features = ["std"]
+optional = true
+
+[dependencies.cubecl]
+version = "0.11.1"
+default-features = false
+features = ["std"]
+optional = true
+
+[features]
+# Examples that open audio devices.
+devices = ["dep:cpal"]
+# Development-only inclusive wall-time counters; absent from normal builds.
+profile = []
+# Development-only read-only intermediate tensors; never enable for latency measurements.
+trace = []
+# The offline model on a GPU with Burn. Enable one backend:
+gpu = ["dep:burn", "dep:burn-cubecl", "dep:cubecl"]
+wgpu = ["gpu", "burn/wgpu"]
+metal = ["gpu", "burn/metal"]
+vulkan = ["gpu", "burn/vulkan"]
+cuda = ["gpu", "burn/cuda"]
+rocm = ["gpu", "burn/rocm"]
+
+[[example]]
+name = "audio_devices"
+required-features = ["devices"]
+
+[[example]]
+name = "soak_live"
+required-features = ["devices"]
+
+[[example]]
+name = "virtual_mic_check"
+required-features = ["devices"]
+
+[[example]]
+name = "loop_latency"
+required-features = ["devices"]
+
+[[test]]
+name = "trace_observer"
+required-features = ["trace"]

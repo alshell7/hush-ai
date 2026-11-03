@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="base" x1="0.05" y1="0.02" x2="0.95" y2="0.98">
+      <stop offset="0" stop-color="#FFC4B0"/>
+      <stop offset="0.34" stop-color="#FFE0A6"/>
+      <stop offset="0.66" stop-color="#C9F2D4"/>
+      <stop offset="1" stop-color="#9BE6E0"/>
+    </linearGradient>
+    <radialGradient id="glowTop" cx="0.26" cy="0.18" r="0.6">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowRose" cx="0.9" cy="0.12" r="0.45">
+      <stop offset="0" stop-color="#FFC9DA" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#FFC9DA" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mochi" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF6EE"/>
+    </linearGradient>
+    <radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7A4A2A" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#7A4A2A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.45"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="216" fill="url(#base)"/>
+  <rect x="64" y="64" width="896" height="896" rx="216" fill="url(#glowRose)"/>
+  <rect x="64" y="64" width="896" height="896" rx="216" fill="url(#glowTop)"/>
+  <rect x="66" y="66" width="892" height="892" rx="214" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <ellipse cx="512" cy="766" rx="250" ry="32" fill="url(#shadow)"/>
+  <path d="M232 628C232 452 356 314 512 314C668 314 792 452 792 628C792 716 716 760 512 760C308 760 232 716 232 628Z" fill="url(#mochi)"/>
+  <path d="M300 470C336 400 410 356 486 350" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" opacity="0.95"/>
+  <ellipse cx="366" cy="626" rx="40" ry="23" fill="#FF9C8F" opacity="0.45"/>
+  <ellipse cx="658" cy="626" rx="40" ry="23" fill="#FF9C8F" opacity="0.45"/>
+  <path d="M396 590Q430 548 464 590" fill="none" stroke="#231F1C" stroke-width="24" stroke-linecap="round"/>
+  <path d="M560 590Q594 548 628 590" fill="none" stroke="#231F1C" stroke-width="24" stroke-linecap="round"/>
+  <path d="M490 628Q512 650 534 628" fill="none" stroke="#231F1C" stroke-width="18" stroke-linecap="round"/>
+</svg>

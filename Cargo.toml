@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["crates/hush-core", "app/src-tauri"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/alshell7/hush-ai"
+homepage = "https://alshell7.github.io/hush-ai"
+authors = ["alshell7", "altunenes"]
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# The engine is unusable without optimization, even in development builds.
+[profile.dev.package.hush-core]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false

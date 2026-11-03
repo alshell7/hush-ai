@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="a1" cx="0.04" cy="0" r="0.6"><stop offset="0" stop-color="#FFC4B0" stop-opacity="0.75"/><stop offset="1" stop-color="#FFC4B0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a2" cx="0.55" cy="-0.1" r="0.5"><stop offset="0" stop-color="#FFE0A6" stop-opacity="0.75"/><stop offset="1" stop-color="#FFE0A6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a3" cx="1.05" cy="0.35" r="0.55"><stop offset="0" stop-color="#9BE6E0" stop-opacity="0.6"/><stop offset="1" stop-color="#9BE6E0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a4" cx="0.2" cy="1.1" r="0.6"><stop offset="0" stop-color="#C9F2D4" stop-opacity="0.75"/><stop offset="1" stop-color="#C9F2D4" stop-opacity="0"/></radialGradient>
+    <radialGradient id="a5" cx="0.92" cy="1.05" r="0.4"><stop offset="0" stop-color="#FFC9DA" stop-opacity="0.6"/><stop offset="1" stop-color="#FFC9DA" stop-opacity="0"/></radialGradient>
+    <linearGradient id="opalText" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E8735A"/><stop offset="0.4" stop-color="#D99A1E"/><stop offset="0.75" stop-color="#1F9D72"/><stop offset="1" stop-color="#178F8A"/>
+    </linearGradient>
+    <linearGradient id="opal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC4B0"/><stop offset="0.34" stop-color="#FFE0A6"/><stop offset="0.68" stop-color="#C9F2D4"/><stop offset="1" stop-color="#9BE6E0"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFAE94"/><stop offset="0.3" stop-color="#FFD27A"/><stop offset="0.6" stop-color="#9FE8B8"/><stop offset="0.85" stop-color="#6FD9D1"/><stop offset="1" stop-color="#FFB7CF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFD27A" stop-opacity="0.55"/><stop offset="0.6" stop-color="#FFAE94" stop-opacity="0.25"/><stop offset="1" stop-color="#FFAE94" stop-opacity="0"/></radialGradient>
+    <radialGradient id="shine" cx="0.35" cy="0.25" r="0.55"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="body" x1="0.3" y1="0" x2="0.7" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFF3EA"/></linearGradient>
+    <radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#5A3A22" stop-opacity="0.28"/><stop offset="1" stop-color="#5A3A22" stop-opacity="0"/></radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#FBFAF7"/>
+  <rect width="1200" height="630" fill="url(#a1)"/>
+  <rect width="1200" height="630" fill="url(#a2)"/>
+  <rect width="1200" height="630" fill="url(#a3)"/>
+  <rect width="1200" height="630" fill="url(#a4)"/>
+  <rect width="1200" height="630" fill="url(#a5)"/>
+
+  <!-- Wordmark -->
+  <g transform="translate(80 66)">
+    <g transform="scale(0.75)">
+      <path d="M4 40C4 21 16.5 8 32 8C47.5 8 60 21 60 40C60 50.5 52 56 32 56C12 56 4 50.5 4 40Z" fill="#1E1B18"/>
+      <path d="M19 38.5Q23 33.5 27 38.5M37 38.5Q41 33.5 45 38.5" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M29.6 43.2Q32 45.6 34.4 43.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+      <ellipse cx="15.5" cy="43" rx="3.6" ry="2.1" fill="#FF9C8F" opacity="0.85"/>
+      <ellipse cx="48.5" cy="43" rx="3.6" ry="2.1" fill="#FF9C8F" opacity="0.85"/>
+    </g>
+    <text x="60" y="38" font-family="Geist" font-weight="600" font-size="36" letter-spacing="-1.3" fill="#1E1B18">hush</text>
+    <rect x="148" y="12" width="40" height="26" rx="13" fill="url(#opal)"/>
+    <text x="168" y="31" text-anchor="middle" font-family="Geist" font-weight="700" font-size="15" letter-spacing="0.3" fill="#1E1B18">AI</text>
+  </g>
+
+  <!-- Headline -->
+  <text font-family="Geist" font-weight="600" font-size="78" letter-spacing="-3.4" fill="#1E1B18">
+    <tspan x="76" y="272">Silence the noise.</tspan>
+  </text>
+  <text font-family="Geist" font-weight="600" font-size="78" letter-spacing="-3.4" fill="url(#opalText)">
+    <tspan x="76" y="360">Keep your voice.</tspan>
+  </text>
+  <text font-family="Geist" font-weight="500" font-size="27" letter-spacing="-0.4" fill="#4A453F">
+    <tspan x="80" y="428">Free, open-source noise cancellation</tspan>
+    <tspan x="80" y="466">that runs on your own computer.</tspan>
+  </text>
+
+  <!-- Platform pill -->
+  <g transform="translate(80 518)">
+    <rect width="308" height="50" rx="25" fill="#FFFFFF" fill-opacity="0.8" stroke="#1E1B18" stroke-opacity="0.08"/>
+    <circle cx="27" cy="25" r="6" fill="#1F9D72"/>
+    <text x="44" y="33" font-family="Geist" font-weight="500" font-size="21" letter-spacing="-0.2" fill="#1E1B18">Windows · macOS · Linux</text>
+  </g>
+
+  <!-- Mascot in the opal ring -->
+  <g transform="translate(925 318)">
+    <circle r="250" fill="url(#glow)"/>
+    <circle r="228" fill="none" stroke="#1E1B18" stroke-opacity="0.05" stroke-width="1.5"/>
+    <circle r="196" fill="none" stroke="url(#ring)" stroke-width="9"/>
+    <circle r="178" fill="url(#opal)"/>
+    <circle r="178" fill="url(#shine)"/>
+    <g transform="translate(-112 -132) scale(3.5)">
+      <ellipse cx="32" cy="57.5" rx="22" ry="3.2" fill="url(#shadow)"/>
+      <path d="M4 40C4 21 16.5 8 32 8C47.5 8 60 21 60 40C60 50.5 52 56 32 56C12 56 4 50.5 4 40Z" fill="url(#body)"/>
+      <path d="M10.5 26C13.5 19.5 19.5 15.2 26 14.6" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" opacity="0.95"/>
+      <ellipse cx="15.5" cy="43" rx="3.8" ry="2.2" fill="#FF9C8F" opacity="0.5"/>
+      <ellipse cx="48.5" cy="43" rx="3.8" ry="2.2" fill="#FF9C8F" opacity="0.5"/>
+      <path d="M19 38.5Q23 33.5 27 38.5M37 38.5Q41 33.5 45 38.5" fill="none" stroke="#231F1C" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M29.4 43.4Q32 46.4 34.6 43.4" fill="none" stroke="#231F1C" stroke-width="2.6" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

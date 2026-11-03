@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 80" width="290" height="80">
+  <defs>
+    <linearGradient id="opal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC4B0"/>
+      <stop offset="0.4" stop-color="#FFE0A6"/>
+      <stop offset="0.75" stop-color="#C9F2D4"/>
+      <stop offset="1" stop-color="#9BE6E0"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(4 8)">
+    <path d="M4 40C4 21 16.5 8 32 8C47.5 8 60 21 60 40C60 50.5 52 56 32 56C12 56 4 50.5 4 40Z" fill="#1E1B18"/>
+    <path d="M19 38.5Q23 33.5 27 38.5M37 38.5Q41 33.5 45 38.5" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M29.6 43.2Q32 45.6 34.4 43.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+    <ellipse cx="15.5" cy="43" rx="3.6" ry="2.1" fill="#FF9C8F" opacity="0.85"/>
+    <ellipse cx="48.5" cy="43" rx="3.6" ry="2.1" fill="#FF9C8F" opacity="0.85"/>
+  </g>
+  <text x="82" y="57" font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="48" font-weight="650" letter-spacing="-1.6" fill="#1E1B18">hush</text>
+  <rect x="200" y="23" width="50" height="32" rx="16" fill="url(#opal)"/>
+  <text x="225" y="45.5" text-anchor="middle" font-family="Geist, 'Segoe UI', system-ui, sans-serif" font-size="19" font-weight="700" letter-spacing="0.4" fill="#1E1B18">AI</text>
+</svg>

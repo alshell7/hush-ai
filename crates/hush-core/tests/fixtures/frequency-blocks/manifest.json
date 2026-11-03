@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "source_trace_sha256": "937c9e7e64e57675d7861228d12e05168b931c0bf9ca52932ef4946b471a31bb",
+  "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
+  "input_sha256": "770f53cc25e7a991c5ec97017c65d8c22519cb542f16cede7a60e831a58cc63e",
+  "nvidia_revision": "4c0c186272ca853cd18d832fc5c28777b62f32d1",
+  "official_online_inference_sha256": "49dc7f57798c0f89f19c6f70ac4835b9e9efd43d02de499f02ed01450c7a6d4f",
+  "unhooked_output_sha256": "6c77373fae79ef0f8bcf53e2c0cddf5680563eb4933fd8cb21ae677fea862d4d",
+  "audited_output_byte_identical": false,
+  "cases": [
+    {
+      "frame": 0,
+      "layer": 0,
+      "shape": [
+        481,
+        64
+      ],
+      "files": {
+        "input": {
+          "file": "00000-layer0-input.f32",
+          "source_file": "00000-blocks.0.time_residual.f32",
+          "sha256": "186c47b45344ffbd5d3e28ecd2c878d40f545bbc4b111ab68681f65f5045e0ba",
+          "bytes": 123136
+        },
+        "output": {
+          "file": "00000-layer0-output.f32",
+          "source_file": "00000-blocks.0.freq.f32",
+          "sha256": "530b308eb0252d9100b15d61d85ec1529154118f6921d886c76bb0bc4ae5d4f4",
+          "bytes": 123136
+        }
+      }
+    },
+    {
+      "frame": 1381,
+      "layer": 1,
+      "shape": [
+        481,
+        64
+      ],
+      "files": {
+        "input": {
+          "file": "01381-layer1-input.f32",
+          "source_file": "01381-blocks.1.time_residual.f32",
+          "sha256": "d2610fbc3e43d0d0cdbd192a1edb2233e20a6cac7ca60a763088a0eed3b1fad9",
+          "bytes": 123136
+        },
+        "output": {
+          "file": "01381-layer1-output.f32",
+          "source_file": "01381-blocks.1.freq.f32",
+          "sha256": "326ead2cc886970f0f14935486c11c77ad87aea8d805bd85f2d9f2f55e44882e",
+          "bytes": 123136
+        }
+      }
+    },
+    {
+      "frame": 1781,
+      "layer": 2,
+      "shape": [
+        481,
+        64
+      ],
+      "files": {
+        "input": {
+          "file": "01781-layer2-input.f32",
+          "source_file": "01781-blocks.2.time_residual.f32",
+          "sha256": "5acab4ca949fd3799bb0a1aba539ee5b5589975886cdd7069301e2b623767131",
+          "bytes": 123136
+        },
+        "output": {
+          "file": "01781-layer2-output.f32",
+          "source_file": "01781-blocks.2.freq.f32",
+          "sha256": "6e7974984d69abd254900b4656580a358b4ffd999fec86fb7e14d6c04212f8de",
+          "bytes": 123136
+        }
+      }
+    }
+  ],
+  "limits": "Complete same-input block diagnostics from the controlled Modal T4 trace. Original checkpoint and all computed intermediates. Not full audio parity; Modal/Colab mismatch remains."
+}

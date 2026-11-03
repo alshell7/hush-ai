@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "mode": "independent_sfu_exp2_witnesses",
+  "source": "https://github.com/envytools/envytools/tree/f102b82381f3f11cee113d16374c87091db039d9",
+  "probe_report_sha256": "bd9670fbe371be7e5bad79d6ebb7d0e4fcedb8a6c60f1fa84be711c3c7fbd6ff",
+  "probe_source_sha256": "f204fad98930fa6dd9ca97e4ba052646cd7a218872b262fee4a9c6997e84f149",
+  "cuda_image": "nvidia/cuda:13.0.2-devel-ubuntu24.04@sha256:0eee3094c71518ad31d011a594ae6ed6de72959ee07e318cb31cffe71690e90c",
+  "environment": {
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:58:59_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n",
+    "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "gpu": "Tesla T4, 610.57.04\n"
+  },
+  "groups": [
+    {
+      "name": "positive_fixed23",
+      "values": 8388608,
+      "reference_mismatches": 0,
+      "library_mismatches": 0
+    },
+    {
+      "name": "negative_fixed23",
+      "values": 8388608,
+      "reference_mismatches": 0,
+      "library_mismatches": 0
+    },
+    {
+      "name": "hashed_bits",
+      "values": 2097152,
+      "reference_mismatches": 0,
+      "library_mismatches": 0
+    },
+    {
+      "name": "integer_neighbors",
+      "values": 1052929,
+      "reference_mismatches": 0,
+      "library_mismatches": 0
+    }
+  ],
+  "file": "witnesses.u32",
+  "sha256": "d0a4e85007f2b6da5a182903d165377c8231545a30f9ee06e1895629b26be6d8",
+  "records": 4866,
+  "record_format": "Six little-endian u32: group index, group sample index, input bits, inline PTX output bits, CUDA exp2f output bits, upstream C reference output bits.",
+  "selection": "Every 4096th sample and every mismatch. Zero mismatches in all 19,927,297 samples. Witnesses are a subset, not an exhaustive FP32 test."
+}

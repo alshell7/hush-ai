@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "frame": 0,
+  "layer": 0,
+  "rows": [
+    0,
+    1,
+    31,
+    32,
+    480
+  ],
+  "gpu_trace_sha256": "5f80fddd799834eb627fcd49bec9ae8189eb3f02894896bbb2b7edbe897cd36c",
+  "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
+  "files": {
+    "fw-x-input.f32": {
+      "bytes": 5120,
+      "sha256": "d3669e387d29ff4a87efd4138f69b804becfe73e203cd1046739c68a327c26a9",
+      "shape": [
+        5,
+        256
+      ],
+      "source_file": "00000-blocks.0.fw.xc.f32",
+      "source_sha256": "1435d5d712cda778e008b1588432b99f437934e67985e7f6295a93e44fad6288"
+    },
+    "fw-x-output.f32": {
+      "bytes": 720,
+      "sha256": "4fd0bf2a81daa767b93304f72c46047af2bf8ca94d4cbece0a8eaaf41e8d774e",
+      "shape": [
+        5,
+        36
+      ],
+      "source_file": "00000-blocks.0.fw.dbl.f32",
+      "source_sha256": "895af6b2d9f8b22c2c8333b437bc51a0c71f89be792855030b95e0748fe34532"
+    },
+    "bw-out-input.f32": {
+      "bytes": 5120,
+      "sha256": "1aad3b65bdc3b7b077d363249e0281cf48a8784580aff6c813dc7000f79c90ac",
+      "shape": [
+        5,
+        256
+      ],
+      "source_file": "00000-blocks.0.bw.gate.f32",
+      "source_sha256": "b224b212a8e9974db3cf55a9b368de979099bc591a254208180c95bc7c1e3e94"
+    },
+    "bw-out-output.f32": {
+      "bytes": 1280,
+      "sha256": "0dd34548cb7fa365ee6ab3a10c9250cb740712fabd6133fe5a4fa197fe715438",
+      "shape": [
+        5,
+        64
+      ],
+      "source_file": "00000-blocks.0.bw.out.f32",
+      "source_sha256": "c17d95a1cd2c7af52772384cd0d1dd4c115a56145bfb583eaf8b857cf0cab08c"
+    },
+    "block-input.f32": {
+      "bytes": 2560,
+      "sha256": "d5ff6889296ea3fea268606f8eb9f8718993dc267d794a1f1f7574e1be14b631",
+      "shape": [
+        5,
+        128
+      ],
+      "source_file": "00000-blocks.0.cat.f32",
+      "source_sha256": "b620389531803f660830a1244286aa2bfe5829e23f38d24c61ba06c69bfe97b5"
+    },
+    "block-output.f32": {
+      "bytes": 1280,
+      "sha256": "928cf62cdaee1b2042eb4439643c5968d08dddda9b720dcf302fcf8221367230",
+      "shape": [
+        5,
+        64
+      ],
+      "source_file": "00000-blocks.0.projection.f32",
+      "source_sha256": "462f033a8912d4fce3947063a32873134754134c2eadec25f12a1e9cbc541956"
+    }
+  },
+  "notes": "Original saved GPU rows. Tests cycle the five rows to 481 positions to exercise packed dispatch; each matrix output depends only on its own row. Weights come from the required pinned checkpoint."
+}

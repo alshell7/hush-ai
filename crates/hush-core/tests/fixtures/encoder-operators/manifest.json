@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
+  "nvidia_revision": "4c0c186272ca853cd18d832fc5c28777b62f32d1",
+  "capture_report_sha256": "344f697b477947a07ae19d930d23b816069958aa83d9426ab8994c63901528d9",
+  "gpu_full_model_trace_sha256": "937c9e7e64e57675d7861228d12e05168b931c0bf9ca52932ef4946b471a31bb",
+  "unhooked_output_sha256": "605103a4dd84d75094b84998ea69f6425d1e49637e0be77db92f7360ffd6c02e",
+  "environment": {
+    "torch": "2.11.0+cu130",
+    "cuda": "13.0",
+    "cudnn": 91900,
+    "gpu": "Tesla T4",
+    "packages": {
+      "torch": "2.11.0+cu130",
+      "nvidia-cublas": "13.1.0.3",
+      "nvidia-cudnn-cu13": "9.19.0.56"
+    }
+  },
+  "cases": [
+    {
+      "frame": 458,
+      "stage": "in",
+      "mode": "block_cuda",
+      "files": {
+        "input": {
+          "frame": 458,
+          "name": "in.input",
+          "file": "00458-in.input.f32",
+          "shape": [
+            1,
+            2,
+            3,
+            965
+          ],
+          "sha256": "632c1b12af98a046be4f61bd5e0ffb0887061f7c539799a6d8dde2c3b2999b5f",
+          "bytes": 23160
+        },
+        "output": {
+          "frame": 458,
+          "name": "in.output",
+          "file": "00458-in.output.f32",
+          "shape": [
+            1,
+            64,
+            1,
+            963
+          ],
+          "sha256": "0c1cceeac9f62a25381f69ed25c3bc4128eeeeec64d05cd9d809fc42f0ec7aef",
+          "bytes": 246528
+        }
+      }
+    },
+    {
+      "frame": 50,
+      "stage": "dense.2",
+      "mode": "norm_cuda",
+      "files": {
+        "input": {
+          "frame": 50,
+          "name": "dense.2.conv",
+          "file": "00050-dense.2.conv.f32",
+          "shape": [
+            1,
+            64,
+            1,
+            963
+          ],
+          "sha256": "b7e9951d9dbf20356c95cc52cef6c7cccefea76061050d11e7aa2065ab4aa8a3",
+          "bytes": 246528
+        },
+        "output": {
+          "frame": 50,
+          "name": "dense.2.norm",
+          "file": "00050-dense.2.norm.f32",
+          "shape": [
+            1,
+            64,
+            1,
+            963
+          ],
+          "sha256": "902e64e6871ccc5c275863689df6c544d8686e80dc7a27878c1cefb72ebae8cd",
+          "bytes": 246528
+        }
+      }
+    }
+  ],
+  "limits": "Same-input isolated encoder regression cases. Does not establish full-stream parity, current macOS behavior or latency."
+}

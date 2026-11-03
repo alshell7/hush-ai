@@ -1,0 +1,9 @@
+# Keep archived patches directly usable across Windows and Unix checkouts.
+*.patch text eol=lf
+# Numerical fixtures must keep their exact bytes in checkouts and source archives.
+*.f32 -text
+*.u32 -text
+
+# Shell scripts must keep Unix line endings on every checkout.
+*.sh text eol=lf
+*.command text eol=lf

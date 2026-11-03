@@ -1,0 +1,23 @@
+# Build output
+/target
+node_modules
+dist
+app/src-tauri/gen
+site/dist
+
+# Local models and test data (download with the commands in docs/BUILD.md)
+/models
+*.safetensors
+
+# Secrets and machine notes: never commit
+.env
+.env.*
+*.key
+MAC*MINI*.txt
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db

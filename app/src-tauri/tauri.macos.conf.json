@@ -1,0 +1,52 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Hush AI",
+        "url": "index.html",
+        "width": 940,
+        "height": 640,
+        "minWidth": 800,
+        "minHeight": 560,
+        "center": true,
+        "visible": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 24
+        },
+        "resizable": true
+      },
+      {
+        "label": "widget",
+        "title": "Hush AI",
+        "url": "index.html#widget",
+        "width": 340,
+        "height": 476,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "windowEffects": {
+          "effects": [
+            "popover"
+          ],
+          "radius": 22,
+          "state": "active"
+        }
+      }
+    ],
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "resources": {
+      "../../target/HushMic.driver": "HushMic.driver"
+    }
+  }
+}

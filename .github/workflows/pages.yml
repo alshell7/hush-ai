@@ -1,0 +1,53 @@
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "app/src/**", "app/index.html", "app/package-lock.json", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            app/package-lock.json
+      - name: Website
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
+      - name: Live app demo (simulated audio backend)
+        working-directory: app
+        run: |
+          npm ci
+          npx vite build --base ./ --outDir ../site/dist/app --emptyOutDir
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
