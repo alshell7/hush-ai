@@ -6,7 +6,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 export const REPO_URL = "https://github.com/alshell7/hush-ai";
 export const RELEASES_URL = `${REPO_URL}/releases/latest`;
 export const MODELS_URL = "https://huggingface.co/alshell7/hush-ai";
-export const DOCS_URL = `${REPO_URL}/tree/main/docs`;
+/** The one place the site links to the NVIDIA model's terms. */
+export const REUSE_LICENSE_URL = "https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE";
 const API_URL = "https://api.github.com/repos/alshell7/hush-ai/releases/latest";
 const CACHE_KEY = "hush-release-v1";
 const CACHE_MS = 15 * 60 * 1000;
@@ -14,7 +15,7 @@ const CACHE_MS = 15 * 60 * 1000;
 export type OS = "windows" | "macos" | "linux" | "mobile" | "unknown";
 export type Desktop = "windows" | "macos" | "linux";
 export type Arch = "x64" | "arm64";
-export type TargetId = "win-x64" | "win-arm64" | "mac-arm64" | "mac-x64" | "linux-appimage" | "linux-deb";
+export type TargetId = "win-x64" | "win-arm64" | "mac-arm64" | "mac-x64" | "linux-appimage" | "linux-deb" | "linux-rpm";
 
 export type Target = {
   id: TargetId;
@@ -35,6 +36,7 @@ export const TARGETS: Target[] = [
   { id: "mac-x64", os: "macos", label: "Intel", detail: "Older Macs", match: (n) => n.endsWith(".dmg") && (X64.test(n) || UNIVERSAL.test(n)) },
   { id: "linux-appimage", os: "linux", label: "AppImage", detail: "Any distribution", match: (n) => n.endsWith(".appimage") && !ARM.test(n) },
   { id: "linux-deb", os: "linux", label: ".deb", detail: "Debian, Ubuntu", match: (n) => n.endsWith(".deb") && !ARM.test(n) },
+  { id: "linux-rpm", os: "linux", label: ".rpm", detail: "Fedora, openSUSE", match: (n) => n.endsWith(".rpm") && !ARM.test(n) },
 ];
 
 export const OS_NAME: Record<Desktop, string> = { windows: "Windows", macos: "macOS", linux: "Linux" };

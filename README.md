@@ -66,7 +66,6 @@ No account. No subscription. No minute limits. Noise cancellation never leaves y
 | **Where your audio is processed** | Your computer | Your computer (noise cancellation) | Adobe's servers: you upload the file |
 | **Live calls in any app** | Yes | Yes | No |
 | **Clean up recordings** | Yes, on your computer | – | Yes, in the browser |
-| **Live voice translation** | Preview, through Google Gemini with your key | – | No |
 
 From the vendors' public pages ([krisp.ai/pricing](https://krisp.ai/pricing/),
 [podcast.adobe.com](https://podcast.adobe.com/en/plans)), November 2026; – means we did not

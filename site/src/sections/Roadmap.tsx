@@ -3,11 +3,11 @@ import { Reveal, SectionHeader } from "../components/ui";
 import { REPO_URL } from "../lib/download";
 
 const ROADMAP = [
-  { icon: SparkleIcon, title: "Noise cancellation", done: true },
-  { icon: TranslateIcon, title: "Voice translation", done: false },
-  { icon: AgentIcon, title: "Agent assist", done: false },
-  { icon: ChartIcon, title: "Speech analytics", done: false },
-  { icon: LockIcon, title: "Voice security", done: false },
+  { icon: SparkleIcon, title: "Noise cancellation", done: true, preview: false },
+  { icon: TranslateIcon, title: "Voice translation", done: true, preview: true },
+  { icon: AgentIcon, title: "Agent assist", done: false, preview: false },
+  { icon: ChartIcon, title: "Speech analytics", done: false, preview: false },
+  { icon: LockIcon, title: "Voice security", done: false, preview: false },
 ];
 
 export function Roadmap() {
@@ -22,13 +22,13 @@ export function Roadmap() {
               Noise cancellation is <span className="opal-text">just the start</span>
             </>
           }
-          sub="The first feature is done. The next ones are open for ideas and for help."
+          sub="Noise cancellation is here, and voice translation is in preview. The next ones are open for ideas and for help."
         />
 
         <Reveal className="mx-auto mt-12 max-w-[760px]">
           <div className="glass p-3 sm:p-4">
             <ul aria-label="Roadmap">
-              {ROADMAP.map(({ icon: Icon, title, done }, i) => (
+              {ROADMAP.map(({ icon: Icon, title, done, preview }, i) => (
                 <li
                   key={title}
                   className={`flex items-center gap-4 rounded-[20px] px-3 py-3.5 sm:px-4 sm:py-4 ${i ? "border-t border-line" : ""}`}
@@ -48,7 +48,7 @@ export function Roadmap() {
                   <span className={`chip shrink-0 ${done ? "chip-green" : ""}`}>
                     {done ? (
                       <>
-                        <span className="dot" /> Available
+                        <span className="dot" /> {preview ? "Preview" : "Available"}
                       </>
                     ) : (
                       "Coming soon"

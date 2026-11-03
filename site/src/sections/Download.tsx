@@ -4,6 +4,7 @@ import { Mochi } from "../components/Mochi";
 import { Reveal } from "../components/ui";
 import { formatSize, OS_NAME, RELEASES_URL, TARGETS, useDownloadInfo, type Desktop } from "../lib/download";
 import { usePauseOffscreen } from "../lib/hooks";
+import { homeHref } from "../lib/route";
 import { DownloadButton } from "./Hero";
 
 const GLYPH: Record<Desktop, ReactNode> = {
@@ -76,7 +77,7 @@ export function DownloadSection() {
                 Give your calls <span className="opal-text">some quiet</span>
               </h2>
               <p className="lede mx-auto mt-4 max-w-[540px] text-[17px] sm:text-[19px]">
-                Free for Windows, macOS and Linux.
+                Free for Windows, macOS and Linux. No account, no limits.
                 {info.release.version && <span className="text-muted"> Version {info.release.version}.</span>}
               </p>
               {info.os === "mobile" ? (
@@ -101,11 +102,11 @@ export function DownloadSection() {
 
             <p className="relative mx-auto mt-8 max-w-[640px] text-center text-[14.5px] leading-relaxed text-ink-2">
               Builds aren't code-signed yet, so your computer asks once before opening Hush.{" "}
-              <a href="#faq-unsigned" className="link">
+              <a href={homeHref("#faq-unsigned")} className="link">
                 Here's what to click
               </a>
               . On Windows, also install the free{" "}
-              <a href="#faq-vb-cable" className="link">
+              <a href={homeHref("#faq-vb-cable")} className="link">
                 VB-CABLE
               </a>{" "}
               for now.

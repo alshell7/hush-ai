@@ -1,19 +1,22 @@
 import { AnimatePresence, m } from "motion/react";
 import { useEffect, useState } from "react";
-import { CloseIcon, GitHubIcon, MenuIcon, StarIcon } from "../components/Icons";
+import { BookIcon, CloseIcon, GitHubIcon, MenuIcon, StarIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { REPO_URL } from "../lib/download";
+import { DOCS_HREF, homeHref, type Route } from "../lib/route";
 
 const LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#demo", label: "Demo" },
-  { href: "#how", label: "How it works" },
-  { href: "#roadmap", label: "Roadmap" },
-  { href: "#faq", label: "FAQ" },
+  { href: homeHref("#demo"), label: "Listen" },
+  { href: homeHref("#built"), label: "How it's built" },
+  { href: homeHref("#features"), label: "Features" },
+  { href: homeHref("#compare"), label: "Compare" },
+  { href: homeHref("#benchmarks"), label: "Benchmarks" },
+  { href: homeHref("#faq"), label: "FAQ" },
 ];
 
-export function Nav() {
+export function Nav({ route }: { route: Route }) {
   const [open, setOpen] = useState(false);
+  const onDocs = route.kind === "docs" || route.kind === "doc";
 
   useEffect(() => {
     if (!open) return;
@@ -26,25 +29,30 @@ export function Nav() {
     <header className="sticky top-0 z-50 pt-3">
       <div className="wrap">
         <nav aria-label="Main" className="glass flex h-[60px] items-center gap-2 rounded-full pl-4 pr-2 sm:pl-5">
-          <a href="#top" className="rounded-full" aria-label="Hush AI, back to top">
+          <a href={homeHref()} className="rounded-full" aria-label="Hush AI home">
             <Wordmark size={28} />
           </a>
           <ul className="mx-auto hidden items-center gap-0.5 lg:flex">
             {LINKS.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="btn btn-ghost btn-sm">
+                <a href={link.href} className="btn btn-ghost btn-sm px-3">
                   {link.label}
                 </a>
               </li>
             ))}
+            <li>
+              <a href={DOCS_HREF} className={`btn btn-sm px-3 ${onDocs ? "btn-soft" : "btn-ghost"}`} aria-current={onDocs ? "page" : undefined}>
+                Docs
+              </a>
+            </li>
           </ul>
           <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
-            <a href={REPO_URL} className="btn btn-ghost btn-sm hidden sm:inline-flex" rel="noopener" target="_blank">
+            <a href={REPO_URL} className="btn btn-ghost btn-sm hidden px-3 sm:inline-flex" rel="noopener" target="_blank" aria-label="Hush AI on GitHub">
               <GitHubIcon size={17} />
-              <span>GitHub</span>
+              <span className="hidden xl:inline">GitHub</span>
               <StarIcon size={15} className="text-amber" />
             </a>
-            <a href="#download" className="btn btn-primary btn-sm">
+            <a href={homeHref("#download")} className="btn btn-primary btn-sm">
               Download
             </a>
             <button
@@ -77,6 +85,11 @@ export function Nav() {
                     </a>
                   </li>
                 ))}
+                <li>
+                  <a href={DOCS_HREF} onClick={() => setOpen(false)} className="flex h-12 items-center gap-2 rounded-2xl px-4 text-[16px] font-[560] hover:bg-black/5">
+                    <BookIcon size={18} /> Docs
+                  </a>
+                </li>
                 <li>
                   <a href={REPO_URL} target="_blank" rel="noopener" className="flex h-12 items-center gap-2 rounded-2xl px-4 text-[16px] font-[560] hover:bg-black/5">
                     <GitHubIcon size={18} /> Star on GitHub

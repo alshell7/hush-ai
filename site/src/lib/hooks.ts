@@ -73,3 +73,36 @@ export function useMounted(): boolean {
 }
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A looping illustration: its CSS animations run only while it is on screen, the tab is
+ * visible and the visitor has not paused it. Returns the ref, the paused flag and a toggle.
+ */
+export function useLoop<T extends HTMLElement>(): { ref: RefObject<T | null>; paused: boolean; toggle: () => void } {
+  const ref = useRef<T>(null);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const update = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let inView = false;
+    update.current = () => {
+      el.dataset.paused = String(pausedRef.current || !(inView && document.visibilityState === "visible"));
+    };
+    const io = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      update.current();
+    });
+    io.observe(el);
+    const onVis = () => update.current();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+  useEffect(() => update.current(), [paused]);
+  return { ref, paused, toggle: () => setPaused((p) => !p) };
+}

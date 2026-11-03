@@ -6,15 +6,6 @@ import { sleep } from "../lib/hooks";
 import { MicIcon } from "./Icons";
 import { Mark } from "./Mochi";
 
-export const APPS = [
-  { name: "Zoom", path: ["Settings", "Audio", "Microphone"], tint: "#9be6e0" },
-  { name: "Google Meet", path: ["More options", "Settings", "Audio", "Microphone"], tint: "#c9f2d4" },
-  { name: "Microsoft Teams", path: ["Settings", "Devices", "Microphone"], tint: "#ffc9da" },
-  { name: "Discord", path: ["User Settings", "Voice & Video", "Input Device"], tint: "#ffe0a6" },
-  { name: "Slack", path: ["Preferences", "Audio & video", "Microphone"], tint: "#ffc4b0" },
-  { name: "OBS Studio", path: ["Settings", "Audio", "Mic/Auxiliary Audio"], tint: "#e6e1d8" },
-] as const;
-
 export function Window({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div

@@ -80,8 +80,13 @@ function LiveWindow() {
     </div>
     <p className="mt-5 flex h-7 items-center justify-center text-[13.5px] text-muted">
       {ready && (
-        <span className="chip chip-green">
-          <span className="dot" /> Live demo · simulated engine
+        <span className="flex items-center gap-3">
+          <span className="chip chip-green">
+            <span className="dot" /> Live demo · simulated engine
+          </span>
+          <a className="link text-ink-2" href={`${import.meta.env.BASE_URL}app/`} target="_blank" rel="noopener">
+            Open it full size
+          </a>
         </span>
       )}
     </p>

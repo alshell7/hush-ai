@@ -2,9 +2,9 @@ import { AnimatePresence, m } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDownIcon } from "../components/Icons";
 import { Reveal, SectionHeader } from "../components/ui";
-import { MODELS_URL, REPO_URL } from "../lib/download";
+import { REPO_URL, REUSE_LICENSE_URL } from "../lib/download";
+import { docHref } from "../lib/route";
 
-const NVIDIA_LICENSE = "https://huggingface.co/nvidia/Real-time_RE-USE";
 
 const FAQ: { id: string; q: string; a: ReactNode }[] = [
   {
@@ -12,7 +12,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     q: "Is it really free?",
     a: (
       <p>
-        Yes. Hush AI is free and open source. There is no account, no trial and no subscription. The code is on{" "}
+        Yes. Hush AI is free and open source, with no account, no trial, no subscription and no minute limits. The code is on{" "}
         <a className="link" href={REPO_URL} target="_blank" rel="noopener">
           GitHub
         </a>
@@ -21,24 +21,121 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     ),
   },
   {
+    id: "vs",
+    q: "Does Hush sound better than Krisp or Adobe Podcast?",
+    a: (
+      <>
+        <p>
+          We have not measured Krisp or Adobe Podcast, so we don't claim that. What we can say is how they differ: Hush is free with no limits, open source,
+          needs no account, and keeps your audio on your computer. Krisp's noise cancellation also runs on your device, but it needs an account and a paid plan
+          after a 7-day trial. Adobe Podcast Enhance Speech works on files you upload to Adobe.
+        </p>
+        <p>
+          The fairest test is your own voice: Hush's setup records a few seconds and plays them back with and without Hush. Our own measurements are in the{" "}
+          <a className="link" href={docHref("comparison")}>
+            comparison
+          </a>
+          .
+        </p>
+      </>
+    ),
+  },
+  {
     id: "privacy",
     q: "Does my audio leave my computer?",
     a: (
       <p>
-        No. Hush processes your microphone on your own CPU and does not send audio anywhere. It goes online for two things only: downloading the voice model
-        once (it checks the file's SHA-256), and checking for app updates.
+        No. Hush cleans your microphone and your recordings on your own CPU and sends no usage data anywhere. It goes online only to download a voice model
+        once (and check its SHA-256), to check for updates, to read your calendar if you connect one, and to reach Google while you use Live Translate.
+      </p>
+    ),
+  },
+  {
+    id: "translate-privacy",
+    q: "Does Live Translate leave my computer?",
+    a: (
+      <p>
+        Yes, and it is the only Hush feature that does. While Live Translate is on, Hush sends your noise-cancelled voice to Google's Gemini Live Translate model
+        and plays the translated voice into Hush AI Microphone. When it is off, nothing goes to Google. Hush itself has no server. Translation needs an internet
+        connection and follows about a sentence behind you.
+      </p>
+    ),
+  },
+  {
+    id: "translate-cost",
+    q: "What does Live Translate cost?",
+    a: (
+      <p>
+        Hush is free. Live Translate uses your own Gemini API key, which Hush helps you create in Google AI Studio. Google offers a free tier; paid use is priced
+        by Google.
+      </p>
+    ),
+  },
+  {
+    id: "engines",
+    q: "Which engine should I use?",
+    a: (
+      <>
+        <p>
+          <strong className="font-[620]">DeepFilterNet 3</strong>, the default, for almost everyone: it uses about 6% of one CPU core and scored highest on
+          PESQ, STOI and SI-SDR in our test.
+        </p>
+        <p>
+          <strong className="font-[620]">NVIDIA RE-USE</strong> if you want to try NVIDIA's model. It needs much more CPU. You can switch in Settings at any
+          time.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "license",
+    q: "Can I use Hush at work?",
+    a: (
+      <p>
+        Yes: Hush AI and its default engine, DeepFilterNet 3, are open source (Apache-2.0, MIT). The optional NVIDIA engine has its own license terms, which the
+        app shows before it downloads:{" "}
+        <a className="link" href={REUSE_LICENSE_URL} target="_blank" rel="noopener">
+          NVIDIA RE-USE model license
+        </a>
+        .
       </p>
     ),
   },
   {
     id: "platforms",
-    q: "Which platforms does it run on?",
+    q: "Which computers does it run on?",
     a: (
       <ul className="list-disc space-y-1 pl-5">
-        <li>Windows, on x64 and ARM64 PCs.</li>
-        <li>macOS 11 or later, on Apple Silicon and Intel Macs.</li>
-        <li>Linux, as an AppImage or a .deb package.</li>
+        <li>Windows 10 and 11, on x64 and ARM64 PCs.</li>
+        <li>macOS 11 or later, on Apple silicon and Intel Macs.</li>
+        <li>Linux with PipeWire or PulseAudio, as an AppImage, a .deb or an .rpm package.</li>
       </ul>
+    ),
+  },
+  {
+    id: "recordings",
+    q: "Which recordings can Hush clean?",
+    a: (
+      <p>
+        WAV, MP3, M4A (AAC), FLAC and OGG files. Drag one into Hush, or record yourself. Hush cleans it on your computer, lets you compare the original and the
+        clean version, and saves a clean WAV.
+      </p>
+    ),
+  },
+  {
+    id: "calendar",
+    q: "How does the Google Calendar connection work without signing in?",
+    a: (
+      <>
+        <p>
+          Google gives every calendar a private address in iCal format. In Google Calendar's settings, under your calendar, open{" "}
+          <em>Integrate calendar</em> and copy <em>Secret address in iCal format</em>. While Hush's connect window is open, it notices the copied address and fills it in.
+        </p>
+        <p>
+          Hush then reads your meetings straight from Google, every 5 to 60 minutes. The address stays on your computer: there is no Hush server and no Google
+          sign-in. Anyone with the address can read the calendar, so keep it to yourself; if it leaks, reset it in the same place in Google Calendar.
+        </p>
+      </>
     ),
   },
   {
@@ -46,9 +143,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     q: "Why does Windows need VB-CABLE?",
     a: (
       <>
-        <p>
-          A virtual microphone on Windows needs an audio driver that Microsoft has signed. Hush's own driver is built and is waiting for that signature.
-        </p>
+        <p>A virtual microphone on Windows needs an audio driver that Microsoft has signed. Hush's own driver is built and is waiting for that signature.</p>
         <p>
           Until then, Hush uses VB-CABLE, a free virtual audio cable by VB-Audio. Install it once from VB-Audio's website and Hush renames it to “Hush AI
           Microphone” for you. VB-CABLE adds about 84 ms of delay.
@@ -71,30 +166,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
             Privacy &amp; Security and click <em>Open Anyway</em>.
           </li>
         </ul>
-        <p>You can always check the source code and build Hush yourself.</p>
-      </>
-    ),
-  },
-  {
-    id: "license",
-    q: "What is the model license? Can I use Hush at work?",
-    a: (
-      <>
-        <p>
-          The Hush app and engine code are Apache-2.0, so you can use, change and share the code freely, including at work.
-        </p>
-        <p>
-          The voice model weights are NVIDIA's, under the{" "}
-          <a className="link" href={NVIDIA_LICENSE} target="_blank" rel="noopener">
-            NVIDIA One-Way Noncommercial License
-          </a>
-          . They are for non-commercial research and educational use only, and Hush needs them to work. So for now, Hush is meant for non-commercial use. If you
-          want to use it at work, read NVIDIA's license first. The weights Hush downloads are mirrored on{" "}
-          <a className="link" href={MODELS_URL} target="_blank" rel="noopener">
-            Hugging Face
-          </a>
-          .
-        </p>
+        <p>You can always read the source code and build Hush yourself.</p>
       </>
     ),
   },
@@ -114,9 +186,16 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
             <strong className="font-[620]">macOS:</strong> quit Hush and drag Hush AI from Applications to the Trash.
           </li>
           <li>
-            <strong className="font-[620]">Linux:</strong> remove the .deb package, or delete the AppImage.
+            <strong className="font-[620]">Linux:</strong> remove the package, or delete the AppImage.
           </li>
         </ul>
+        <p>
+          More in the{" "}
+          <a className="link" href={docHref("guide")}>
+            user guide
+          </a>
+          .
+        </p>
       </>
     ),
   },

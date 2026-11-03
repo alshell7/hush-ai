@@ -106,25 +106,3 @@ export function Segmented<T extends string>({
     </div>
   );
 }
-
-/** Small rounded square with an app's initial, tinted from the opal palette. */
-export function AppMonogram({ name, tint, size = 28 }: { name: string; tint: string; size?: number }) {
-  const letters = name === "OBS Studio" ? "OBS" : name === "Microsoft Teams" ? "T" : name === "Google Meet" ? "M" : name[0];
-  return (
-    <span
-      aria-hidden
-      className="grid shrink-0 place-items-center font-[680] text-ink"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.32,
-        background: tint,
-        fontSize: letters.length > 1 ? size * 0.3 : size * 0.46,
-        letterSpacing: "-0.02em",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,.7), inset 0 0 0 1px rgba(30,27,24,.06)",
-      }}
-    >
-      {letters}
-    </span>
-  );
-}

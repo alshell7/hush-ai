@@ -1,47 +1,29 @@
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
+import type { ReactNode } from "react";
 import { DownloadsContext, useDownloads } from "./lib/download";
-import { AudioDemo } from "./sections/AudioDemo";
-import { DownloadSection } from "./sections/Download";
-import { Faq } from "./sections/Faq";
-import { Features } from "./sections/Features";
+import { routeKey, type Route } from "./lib/route";
 import { Footer } from "./sections/Footer";
-import { Guides } from "./sections/Guides";
-import { Hero } from "./sections/Hero";
-import { HowItWorks } from "./sections/HowItWorks";
 import { Nav } from "./sections/Nav";
-import { Performance } from "./sections/Performance";
-import { Roadmap } from "./sections/Roadmap";
-import { Showcase } from "./sections/Showcase";
 
-export function App() {
+/** The frame every page shares: motion settings, release info, navigation and footer. */
+export function Root({ route, children }: { route: Route; children: ReactNode }) {
   const downloads = useDownloads();
   return (
     <LazyMotion features={domAnimation} strict>
-    <MotionConfig reducedMotion="user">
-      <DownloadsContext.Provider value={downloads}>
-        <a href="#main" className="skip-link btn btn-primary btn-sm">
-          Skip to content
-        </a>
-        <div className="relative overflow-x-clip">
-          {/* Warm aurora behind the top of the page. Static: painted once. */}
-          <div aria-hidden className="aurora aurora-fade bottom-auto h-[1150px]" />
-          <Nav />
-          <main id="main">
-            <Hero />
-            <AudioDemo />
-            <Guides />
-            <Showcase />
-            <Features />
-            <HowItWorks />
-            <Performance />
-            <Roadmap />
-            <Faq />
-            <DownloadSection />
-          </main>
-          <Footer />
-        </div>
-      </DownloadsContext.Provider>
-    </MotionConfig>
+      <MotionConfig reducedMotion="user">
+        <DownloadsContext.Provider value={downloads}>
+          <a href="#main" className="skip-link btn btn-primary btn-sm">
+            Skip to content
+          </a>
+          <div className="relative overflow-x-clip" data-route={routeKey(route)}>
+            {/* Warm aurora behind the top of the page. Static: painted once. */}
+            <div aria-hidden className={`aurora aurora-fade bottom-auto ${route.kind === "home" ? "h-[1150px]" : "h-[620px] opacity-80"}`} />
+            <Nav route={route} />
+            <main id="main">{children}</main>
+            <Footer />
+          </div>
+        </DownloadsContext.Provider>
+      </MotionConfig>
     </LazyMotion>
   );
 }
