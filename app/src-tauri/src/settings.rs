@@ -33,7 +33,7 @@ pub struct Settings {
     pub enabled: bool,
     /// Microphone name; `None` follows the system default.
     pub input: Option<String>,
-    /// Headphones for "Listen"; `None` follows the system default.
+    /// Speakers or headphones for the microphone test; `None` follows the system default.
     pub output: Option<String>,
     pub quality: Quality,
     /// Inference threads; 0 is automatic.
@@ -42,6 +42,16 @@ pub struct Settings {
     pub audio_priority: bool,
     pub check_updates: bool,
     pub tray_hint_shown: bool,
+    /// Turn noise cancellation on before calendar meetings that have a call link.
+    pub calendar_auto: bool,
+    /// Minutes before a meeting to turn it on.
+    pub calendar_lead: u32,
+    /// Turn it off after the meeting, if Hush turned it on.
+    pub calendar_auto_off: bool,
+    /// Pop up the tray widget shortly before a meeting.
+    pub calendar_popup: bool,
+    /// Minutes between calendar reads.
+    pub calendar_sync: u32,
 }
 
 impl Default for Settings {
@@ -57,6 +67,11 @@ impl Default for Settings {
             audio_priority: true,
             check_updates: true,
             tray_hint_shown: false,
+            calendar_auto: true,
+            calendar_lead: 1,
+            calendar_auto_off: true,
+            calendar_popup: true,
+            calendar_sync: 5,
         }
     }
 }

@@ -1,12 +1,15 @@
 //! Hush AI desktop app: Tauri commands, windows, tray and start-up.
 mod audio;
+mod calendar;
 mod engine;
 mod mictest;
 mod model;
 mod settings;
+mod studio;
 mod tray;
 mod vmic;
 
+use calendar::{Calendar, CalendarInfo};
 use engine::{Engine, EngineState, Status};
 use mictest::MicTest;
 use serde::Serialize;
@@ -19,6 +22,7 @@ use std::{
         Arc, Mutex,
     },
 };
+use studio::Studio;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 
 /// Launched at login: stay in the tray.
@@ -60,6 +64,7 @@ struct Snapshot {
     settings: Settings,
     model: model::ModelInfo,
     engine: EngineState,
+    calendar: CalendarInfo,
     platform: &'static str,
     version: &'static str,
 }
@@ -107,6 +112,7 @@ fn snapshot(app: AppHandle, state: tauri::State<AppState>) -> Snapshot {
         settings: state.settings(),
         model: model::info(&state.data_dir),
         engine: app.state::<Arc<Engine>>().state(),
+        calendar: app.state::<Arc<Calendar>>().info(),
         platform: std::env::consts::OS,
         version: env!("CARGO_PKG_VERSION"),
     }
@@ -171,8 +177,10 @@ fn update_settings(app: AppHandle, patch: serde_json::Value) -> Reply<Settings> 
     let restart = before.input != saved.input
         || before.quality != saved.quality
         || before.threads != saved.threads
-        || before.audio_priority != saved.audio_priority
-        || (before.output != saved.output && app.state::<Arc<Engine>>().state().listen);
+        || before.audio_priority != saved.audio_priority;
+    if before.calendar_sync != saved.calendar_sync {
+        app.state::<Arc<Calendar>>().refresh();
+    }
     if before.enabled != saved.enabled {
         set_enabled(&app, saved.enabled);
     } else if restart && app.state::<Arc<Engine>>().is_running() {
@@ -185,18 +193,6 @@ fn update_settings(app: AppHandle, patch: serde_json::Value) -> Reply<Settings> 
 #[tauri::command]
 fn set_enabled_command(app: AppHandle, on: bool) {
     set_enabled(&app, on);
-}
-
-#[tauri::command]
-fn set_listen(app: AppHandle, on: bool) {
-    let engine = app.state::<Arc<Engine>>().inner().clone();
-    app.state::<MicTest>().stop_monitor();
-    std::thread::spawn(move || engine.set_listen(on));
-}
-
-#[tauri::command]
-fn set_original(engine: tauri::State<Arc<Engine>>, on: bool) {
-    engine.set_original(on);
 }
 
 /// A window starts or stops showing meters.
@@ -326,6 +322,97 @@ fn test_stop(test: tauri::State<MicTest>) {
     test.stop();
 }
 
+/// Studio: enhance a file the user dropped or chose.
+#[tauri::command]
+fn studio_open(app: AppHandle, path: String) {
+    app.state::<Studio>().open(&app, PathBuf::from(path), None);
+}
+
+/// Studio: record from the microphone; `studio_stop` ends the recording and enhances it.
+#[tauri::command]
+fn studio_record(app: AppHandle) -> Reply<()> {
+    app.state::<Studio>().record(&app).map_err(text)
+}
+
+#[tauri::command]
+fn studio_stop(studio: tauri::State<Studio>) {
+    studio.stop_recording();
+}
+
+#[tauri::command]
+fn studio_cancel(app: AppHandle) {
+    app.state::<Studio>().cancel(&app);
+}
+
+#[tauri::command]
+async fn studio_save(app: AppHandle, path: String) -> Reply<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Studio>().save(std::path::Path::new(&path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(text)
+}
+
+#[tauri::command]
+fn calendar_info(calendar: tauri::State<Arc<Calendar>>) -> CalendarInfo {
+    calendar.info()
+}
+
+#[tauri::command]
+async fn calendar_connect(app: AppHandle, address: String) -> Reply<CalendarInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<Calendar>>().connect(&app, &address)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// What an address holds, without keeping it.
+#[tauri::command]
+async fn calendar_check(address: String) -> Reply<calendar::Preview> {
+    tauri::async_runtime::spawn_blocking(move || Calendar::check(&address))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Open Google Calendar's settings, where the secret address is.
+#[tauri::command]
+fn calendar_open_settings(app: AppHandle) -> Reply<()> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(
+            "https://calendar.google.com/calendar/u/0/r/settings",
+            None::<&str>,
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn calendar_disconnect(app: AppHandle) -> CalendarInfo {
+    app.state::<Arc<Calendar>>().disconnect(&app)
+}
+
+#[tauri::command]
+fn calendar_refresh(calendar: tauri::State<Arc<Calendar>>) {
+    calendar.refresh();
+}
+
+/// Open a meeting's call link. Only links read from the calendar can be opened.
+#[tauri::command]
+fn calendar_join(app: AppHandle, id: String) -> Reply<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let link = app
+        .state::<Arc<Calendar>>()
+        .link(&id)
+        .ok_or("This meeting has no call link")?;
+    app.opener()
+        .open_url(link, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_main(app: AppHandle) {
     show_main(&app);
@@ -340,6 +427,49 @@ fn quit(app: AppHandle) {
 #[tauri::command]
 fn selftest_mode() -> bool {
     std::env::var_os("HUSH_SELFTEST").is_some()
+}
+
+/// Self-test inputs: a noisy WAV for Studio, where to save its result, and the calendar
+/// address from `HUSH_TEST_ICAL`. Only in self-test mode.
+#[tauri::command]
+fn selftest_fixture(app: AppHandle, kind: String) -> Reply<Option<String>> {
+    if std::env::var_os("HUSH_SELFTEST").is_none() {
+        return Err("Only in self-test mode".into());
+    }
+    let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    match kind.as_str() {
+        "studio" => {
+            // 4 s of 44.1 kHz stereo: a voice-like tone that comes and goes, over noise.
+            let path = dir.join("selftest-input.wav");
+            let spec = hound::WavSpec {
+                channels: 2,
+                sample_rate: 44_100,
+                bits_per_sample: 16,
+                sample_format: hound::SampleFormat::Int,
+            };
+            let mut writer = hound::WavWriter::create(&path, spec).map_err(|e| e.to_string())?;
+            let mut seed = 0x2545_f491_u32;
+            for i in 0..44_100 * 4 {
+                let t = i as f32 / 44_100.0;
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                let noise = (seed as f32 / u32::MAX as f32 - 0.5) * 0.2;
+                let voice = (t * 2.0 * std::f32::consts::PI * 180.0).sin()
+                    * (t * std::f32::consts::PI * 2.0).sin().max(0.0)
+                    * 0.4;
+                let sample = ((voice + noise) * i16::MAX as f32) as i16;
+                writer.write_sample(sample).map_err(|e| e.to_string())?;
+                writer.write_sample(sample).map_err(|e| e.to_string())?;
+            }
+            writer.finalize().map_err(|e| e.to_string())?;
+            Ok(Some(path.display().to_string()))
+        }
+        "save" => Ok(Some(dir.join("selftest-clean.wav").display().to_string())),
+        "ical" => Ok(std::env::var("HUSH_TEST_ICAL").ok().filter(|v| !v.is_empty())),
+        _ => Err(format!("Unknown fixture {kind}")),
+    }
 }
 
 #[tauri::command]
@@ -367,6 +497,8 @@ pub fn run() {
             show_main(app);
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -389,6 +521,9 @@ pub fn run() {
                 background,
             });
             app.manage(MicTest::default());
+            app.manage(Studio::default());
+            Studio::startup(handle);
+            app.manage(Calendar::new(handle));
             let engine = Engine::new(handle.clone());
             app.manage(engine.clone());
             tray::create(handle)?;
@@ -420,8 +555,6 @@ pub fn run() {
             devices,
             update_settings,
             set_enabled_command,
-            set_listen,
-            set_original,
             watch_meters,
             model_download,
             model_cancel,
@@ -433,9 +566,22 @@ pub fn run() {
             test_record,
             test_play,
             test_stop,
+            studio_open,
+            studio_record,
+            studio_stop,
+            studio_cancel,
+            studio_save,
+            calendar_info,
+            calendar_check,
+            calendar_connect,
+            calendar_open_settings,
+            calendar_disconnect,
+            calendar_refresh,
+            calendar_join,
             open_main,
             quit,
             selftest_mode,
+            selftest_fixture,
             selftest_report,
         ])
         .build(tauri::generate_context!())

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Segmented, Toggle } from "../components/Controls";
 import { ExternalIcon, MicIcon } from "../components/Icons";
+import { MeetingSoon, NextUp, useSoon } from "../components/MeetingSoon";
 import { LevelStrip } from "../components/Meters";
 import { Mark, Mochi } from "../components/Mochi";
 import { api, on } from "../lib/ipc";
@@ -13,6 +14,7 @@ export function Widget() {
   const engine = useApp((s) => s.engine);
   const devices = useApp((s) => s.devices);
   const [hint, setHint] = useState(false);
+  const soon = useSoon();
 
   useEffect(() => {
     document.documentElement.classList.add("widget");
@@ -53,11 +55,13 @@ export function Widget() {
           <div className="min-w-0 flex-1">
             <div className="whitespace-nowrap text-[14.5px] font-[640] tracking-[-0.02em]">Noise cancellation</div>
             <div className="truncate text-[12px] text-muted" title={engine.message ?? undefined}>
-              {engine.status === "error" ? engine.message : engine.status === "starting" ? "Starting…" : isOn ? (engine.listen ? "On · in your headphones" : "On · Hush AI Microphone") : "Off"}
+              {engine.status === "error" ? engine.message : engine.status === "starting" ? "Starting…" : isOn ? "On · Hush AI Microphone" : "Off"}
             </div>
           </div>
           <Toggle label="Noise cancellation" size="lg" on={isOn} onChange={(v) => api.setEnabled(v)} />
         </div>
+
+        <MeetingSoon />
 
         <AnimatePresence>
           {hint && (
@@ -70,7 +74,9 @@ export function Widget() {
           )}
         </AnimatePresence>
 
-        <div className="relative mt-3 space-y-2 rounded-[18px] bg-white/70 p-3" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
+        {/* A meeting pop-up takes the levels' place while it shows. */}
+        {!soon && (
+        <div className="relative mt-3 shrink-0 space-y-2 rounded-[18px] bg-white/70 p-3" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
           <div className="flex items-center gap-2 text-[12px] font-semibold text-muted">
             <MicIcon size={15} />
             <span className="truncate">{mic}</span>
@@ -81,6 +87,9 @@ export function Widget() {
           </div>
           <LevelStrip source="output" color="#1f9d72" height={22} idle={!isOn} />
         </div>
+        )}
+
+        <NextUp />
 
         <div className="relative mt-3">
           <Segmented

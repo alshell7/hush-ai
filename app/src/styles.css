@@ -378,6 +378,51 @@ button {
   }
 }
 
+/* NoiseMorph: waveforms scroll left through the mascot; noise labels drift and fade. */
+@keyframes nm-scroll {
+  to {
+    /* Tailwind's translate-y uses the separate `translate` property, so only x moves here. */
+    transform: translateX(-240px);
+  }
+}
+.nm-scroll {
+  animation: nm-scroll 6s linear infinite;
+  will-change: transform;
+}
+@keyframes nm-float {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(70px) scale(0.85);
+  }
+}
+.nm-float {
+  animation: nm-float 5.5s var(--h-ease-soft) infinite;
+}
+@keyframes nm-halo {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.nm-halo {
+  animation: nm-halo 9s linear infinite;
+  filter: blur(6px);
+}
+
+/* Studio: the dashed drop zone border drifts slowly while a file hovers. */
+@keyframes h-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

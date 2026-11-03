@@ -80,7 +80,7 @@ pub struct Settings {
     pub virtual_mic: bool,
 }
 
-fn input_stream<T: SizedSample>(
+pub(crate) fn input_stream<T: SizedSample>(
     dev: &cpal::Device,
     config: &cpal::StreamConfig,
     mut producer: Producer<f32>,

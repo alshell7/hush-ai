@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { DevicePicker, Segmented, Spinner } from "../components/Controls";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, DownloadIcon, ExternalIcon, LockIcon, MicIcon, PlayIcon, RecordIcon, ShieldIcon, SparkleIcon, StopIcon } from "../components/Icons";
 import { MicLevel } from "../components/Meters";
-import { ChooseMicDemo } from "../components/Mockups";
+import { AppGuidePicker } from "../components/AppGuides";
 import { Mochi, Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
 import { VmicSetup } from "../components/VmicSetup";
@@ -458,7 +458,7 @@ function DoneStep() {
           App-by-app guides <ExternalIcon size={14} />
         </button>
       </div>
-      <ChooseMicDemo />
+      <AppGuidePicker />
     </div>
   );
 }

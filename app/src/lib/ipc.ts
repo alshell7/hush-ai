@@ -23,8 +23,6 @@ export interface Settings {
 export interface EngineState {
   status: EngineStatus;
   message: string | null;
-  listen: boolean;
-  original: boolean;
   threads: number;
   inputRate: number;
   modelRate: number;
@@ -113,7 +111,7 @@ async function tauriListen<K extends keyof EventMap>(event: K, handler: Handler<
 // ---------------------------------------------------------------- Simulation
 
 const listeners = new Map<string, Set<(payload: unknown) => void>>();
-function emit<K extends keyof EventMap>(event: K, payload: EventMap[K]) {
+export function emit<K extends keyof EventMap>(event: K, payload: EventMap[K]) {
   listeners.get(event)?.forEach((fn) => fn(payload));
 }
 
@@ -133,8 +131,6 @@ const sim = {
   engine: {
     status: "on",
     message: null,
-    listen: false,
-    original: false,
     threads: 2,
     inputRate: 48000,
     modelRate: 16000,
@@ -169,7 +165,7 @@ function setEngine(patch: Partial<EngineState>) {
   emit("engine", sim.engine);
 }
 
-const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
+export const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
   snapshot: () => ({ settings: sim.settings, model: sim.model, engine: sim.engine, platform: guessPlatform(), version: "1.0.0" }),
   app_ready: () => undefined,
   devices: () => ({
@@ -195,11 +191,9 @@ const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
     if (on) {
       setEngine({ status: "starting" });
       setTimeout(() => setEngine({ status: "on" }), 700);
-    } else setEngine({ status: "off", listen: false });
+    } else setEngine({ status: "off" });
     return undefined;
   },
-  set_listen: ({ on }) => setEngine({ listen: on as boolean }),
-  set_original: ({ on }) => setEngine({ original: on as boolean }),
   watch_meters: ({ on }) => simulateMeters(on as boolean),
   model_download: () =>
     new Promise((resolve) => {
@@ -283,8 +277,6 @@ export const api = {
   devices: () => invoke<Devices>("devices"),
   updateSettings: (patch: Partial<Settings>) => invoke<Settings>("update_settings", { patch }),
   setEnabled: (on: boolean) => invoke<void>("set_enabled_command", { on }),
-  setListen: (on: boolean) => invoke<void>("set_listen", { on }),
-  setOriginal: (on: boolean) => invoke<void>("set_original", { on }),
   watchMeters: (on: boolean) => invoke<void>("watch_meters", { on }),
   downloadModel: () => invoke<ModelInfo>("model_download"),
   cancelModel: () => invoke<void>("model_cancel"),

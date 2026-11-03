@@ -6,7 +6,8 @@
 
 <p align="center">
   <b>Silence the noise. Keep your voice.</b><br>
-  Free, open-source noise cancellation for every app. It runs on your own computer.
+  The free, open-source alternative to Krisp for your calls and to Adobe Podcast for your recordings.<br>
+  It runs on your own computer.
 </p>
 
 <p align="center">
@@ -14,47 +15,68 @@
   <a href="https://github.com/alshell7/hush-ai/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/alshell7/hush-ai/ci.yml?style=flat-square&label=tests"></a>
   <img alt="Windows, macOS, Linux" src="https://img.shields.io/badge/Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-f3efe8?style=flat-square">
   <a href="LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/code-Apache--2.0-1f9d72?style=flat-square"></a>
-  <a href="https://huggingface.co/alshell7/hush-ai"><img alt="Model on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20model-hush--ai-ffd27a?style=flat-square"></a>
+  <a href="https://huggingface.co/alshell7/hush-ai"><img alt="Models on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20models-hush--ai-ffd27a?style=flat-square"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/alshell7/hush-ai/releases/latest"><b>Download</b></a> ·
   <a href="https://alshell7.github.io/hush-ai/"><b>Website</b></a> ·
   <a href="https://alshell7.github.io/hush-ai/#demo"><b>Hear the difference</b></a> ·
-  <a href="docs/GUIDE.md"><b>User guide</b></a>
+  <a href="https://alshell7.github.io/hush-ai/docs/"><b>Docs</b></a>
 </p>
 
 <p align="center">
   <img src="assets/screenshots/hero.png" alt="Hush AI main window with noise cancellation on, and the tray widget" width="920">
 </p>
 
-Keyboards, fans, barking dogs, traffic, a busy café: **Hush AI removes them from your
-microphone while you talk**. Apps hear only your voice through a new microphone called
-**Hush AI Microphone**. Choose it in Zoom, Google Meet, Microsoft Teams, Discord, Slack,
-OBS or any other app.
+Keyboards, fans, barking dogs, traffic, a busy café, a crying baby. **Hush AI removes them
+from your voice while you talk**, and from recordings you already have.
 
-No account. No cloud. No subscription. Your voice never leaves your computer.
+- **On calls**, apps hear you through a new microphone called **Hush AI Microphone**. Choose
+  it once in Zoom, Google Meet, Microsoft Teams, Slack, Discord, Webex or OBS.
+- **In Studio**, drop an audio or video file, or record yourself, and save a clean WAV.
+- **With Google Calendar**, Hush turns itself on a minute before each call and pops up with a
+  Join button. No Google sign-in.
+
+No account. No cloud. No subscription. No minute limits. Your voice never leaves your computer.
 
 ## Why Hush AI
 
 |  |  |
 | --- | --- |
-| 🔒 **Private** | Everything runs on your CPU. Hush sends no audio, no telemetry and has no servers. |
-| ⚡ **Real time** | 20 ms frames, about 60–80 ms from your microphone to your call. |
-| ⚙️ **Self-tuning** | Automatic threads use the fewest CPU cores that keep up. Windows "Pro Audio" priority keeps your voice smooth when the computer is busy. |
-| 🎙️ **Works everywhere** | One virtual microphone for every app: Hush AI Microphone. |
-| 🎯 **Proven quality** | NVIDIA's [Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE) speech model with its original weights, in native Rust. The output matches NVIDIA's GPU reference at 113–118 dB. |
-| 🧸 **Pleasant** | A calm app, a tray and menu bar widget, and updates that install themselves. |
+| 🔒 **On your computer** | Everything runs on your CPU. Hush sends no audio and no telemetry, and has no servers. |
+| 🪶 **Light** | The default engine, DeepFilterNet 3, needs about 6% of one CPU core. Your laptop stays cool and quiet. |
+| ⚡ **Real time** | 10–20 ms frames, about 60 ms from your microphone to your call. |
+| 🎙️ **Works everywhere** | One virtual microphone for every app. A tray and menu bar widget to switch it on and off. |
+| 🎚️ **Two engines** | DeepFilterNet 3 (light, commercial use allowed) or NVIDIA Real-time RE-USE (research model, most natural at high settings). Switch any time. |
+| 📼 **Studio** | Clean up podcasts, voice notes, interviews and lectures. Drag and drop, compare before and after, save. |
+| 📅 **Meetings** | Google Calendar through its private iCal address. Hush is ready before your call is. |
 | 🔓 **Open source** | Apache-2.0 app and engine. Read every line. |
+
+## Hush AI, Krisp and Adobe Podcast
+
+|  | Hush AI | Krisp | Adobe Podcast Enhance Speech |
+| --- | --- | --- | --- |
+| **Price** | Free, no limits | 7-day free trial, then paid plans | Free with daily limits; more with a paid Adobe plan |
+| **Open source** | Yes, Apache-2.0 | No | No |
+| **Account** | None | Sign-up | Adobe account |
+| **Where your audio is processed** | Your computer | Your computer (noise cancellation) | Adobe's servers: you upload the file |
+| **Live calls in any app** | Yes | Yes | No |
+| **Clean up recordings** | Yes, on your computer | – | Yes, in the browser |
+
+From the vendors' public pages ([krisp.ai/pricing](https://krisp.ai/pricing/),
+[podcast.adobe.com](https://podcast.adobe.com/en/plans)), November 2026; – means we did not
+find it there. We have not measured Krisp's or Adobe's audio quality, so this table compares
+what each product is, not how it sounds.
 
 ## Hear the difference
 
-NVIDIA's sample recording, before and after Hush AI (6.5 s):
-[▶ Original](site/public/samples/noisy.mp3) · [▶ With Hush](site/public/samples/hush.mp3) ·
-or try the [A/B player on the website](https://alshell7.github.io/hush-ai/#demo).
+GitHub cannot play audio in this page. The website has an
+[A/B player](https://alshell7.github.io/hush-ai/#demo) with everyday scenes (a dog, a
+keyboard, a café, a street) where you switch between the original and Hush while it plays.
 
-You can do the same with your own voice: the app's setup records a few seconds and plays
-them back with and without Hush.
+Or try your own voice: Hush's setup records a few seconds and plays them back with and
+without Hush, and Studio cleans up any recording you drop on it.
 
 ## Download
 
@@ -66,8 +88,10 @@ them back with and without Hush.
 | Intel Mac (macOS 11+) | [`…_x64.dmg`](https://github.com/alshell7/hush-ai/releases/latest) |
 | Linux (PipeWire or PulseAudio) | [`.AppImage`, `.deb`, `.rpm`](https://github.com/alshell7/hush-ai/releases/latest) |
 
-The installers are small. On first start, Hush AI downloads the voice model (54 MB) from
-[Hugging Face](https://huggingface.co/alshell7/hush-ai) and checks its SHA-256.
+The installers are small. On first start, Hush AI downloads the voice model from
+[Hugging Face](https://huggingface.co/alshell7/hush-ai) (8 MB for DeepFilterNet 3, 54 MB
+for RE-USE) and checks its SHA-256. If Hugging Face is unreachable, it uses the model's
+original source.
 
 > [!NOTE]
 > The apps are not code-signed yet, so Windows and macOS ask once before the first start.
@@ -87,34 +111,65 @@ The installers are small. On first start, Hush AI downloads the voice model (54 
      (Hush shows each step), then Hush renames it to *Hush AI Microphone*.
    - **Linux:** nothing to do. Hush creates it on PipeWire or PulseAudio.
 3. **Hear the difference.** Record a few seconds and compare.
-4. **Choose Hush AI Microphone in your apps:**
+4. **Choose Hush AI Microphone in your apps.** Hover an app in Hush to watch where:
 
-| App | Where |
-| --- | --- |
-| Zoom | Settings › Audio › Microphone |
-| Google Meet | More options › Settings › Audio › Microphone |
-| Microsoft Teams | Settings › Devices › Microphone |
-| Discord | User Settings › Voice & Video › Input Device |
-| Slack | Preferences › Audio & video › Microphone |
-| OBS Studio | Settings › Audio › Mic/Auxiliary Audio |
+| | App | Where |
+| --- | --- | --- |
+| <img src="assets/apps/zoom.svg" width="18" alt=""> | Zoom | Settings › Audio › Microphone |
+| <img src="assets/apps/meet.svg" width="18" alt=""> | Google Meet | More options › Settings › Audio › Microphone |
+| <img src="assets/apps/teams.svg" width="18" alt=""> | Microsoft Teams | Settings › Devices › Microphone |
+| <img src="assets/apps/slack.svg" width="18" alt=""> | Slack | Preferences › Audio & video › Microphone |
+| <img src="assets/apps/discord.svg" width="18" alt=""> | Discord | User Settings › Voice & Video › Input Device |
+| <img src="assets/apps/webex.svg" width="18" alt=""> | Webex | Settings › Audio › Microphone |
+| <img src="assets/apps/obs.svg" width="18" alt=""> | OBS Studio | Settings › Audio › Mic/Auxiliary Audio |
 
 Hush AI then lives in your tray (Windows, Linux) or menu bar (macOS). Click the mochi to
-turn noise cancellation on or off, change the microphone or the quality.
+turn noise cancellation on or off, change the microphone, or join your next meeting.
+
+### Studio: clean up a recording
+
+Open the **Studio** tab and drop a file: WAV, MP3, M4A/AAC, FLAC, OGG, or the sound of an
+MP4 or MOV. Or press **Record yourself**. Hush cleans it with the engine you chose, shows
+both waveforms, and lets you switch between the original and the clean version while it
+plays. **Save clean WAV** writes a 48 kHz file wherever you like. Long files are fine: Hush
+reads and writes them in pieces, so memory stays flat.
+
+### Meetings: Google Calendar without signing in
+
+Open the **Meetings** tab and press **Connect Google Calendar**:
+
+1. **Open settings** takes you to Google Calendar's settings.
+2. Under *Settings for my calendars*, pick your calendar, then **Integrate calendar**.
+3. Copy **Secret address in iCal format**.
+
+Come back to Hush: it notices the address on the clipboard, checks it with Google, and
+shows the calendar's name and how many meetings it found. Press **Connect**. Then choose:
+
+- how often Hush checks for changes (5, 15, 30 or 60 minutes);
+- whether it turns noise cancellation on 1, 2 or 5 minutes before a call with a Meet, Zoom,
+  Teams, Webex, Slack or Discord link, and off again afterwards;
+- whether the tray widget pops up with a Join button.
+
+The address stays in Hush's settings folder on your computer. Hush reads it straight from
+Google; there is no Hush server and no Google sign-in. Anyone with the address can read
+your calendar, so Google lets you reset it any time, and **Disconnect** makes Hush forget it.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  mic["🎙️ Your microphone"] --> engine["Hush engine<br/>NVIDIA RE-USE · Rust · your CPU"]
+  mic["🎙️ Your microphone"] --> engine["Hush engine<br/>DeepFilterNet 3 or NVIDIA RE-USE<br/>Rust · your CPU"]
   engine --> vmic["Hush AI Microphone<br/>(virtual device)"]
-  vmic --> apps["Zoom · Meet · Teams<br/>Discord · OBS · …"]
+  vmic --> apps["Zoom · Meet · Teams<br/>Slack · Discord · OBS · …"]
+  file["📼 A recording"] --> studio["Studio<br/>same engine, off the audio path"] --> wav["Clean WAV"]
 ```
 
-- The **engine** (`crates/hush-core`) runs the Mamba-based RE-USE model one 20 ms frame
-  at a time, in plain Rust with SIMD. No Python, no GPU, no ONNX runtime.
-- The **app** (`app/`, Tauri 2) opens your microphone, feeds the engine on a real-time
-  thread and writes the clean voice to the virtual microphone. The model never runs in
-  the audio callback, so a slow frame can never glitch the device.
+- The **engine** (`crates/hush-core`) runs either model one frame at a time on the CPU:
+  NVIDIA's Mamba-based RE-USE in plain Rust with SIMD (20 ms frames), or DeepFilterNet 3
+  through its official Rust inference (10 ms frames). No Python, no GPU.
+- The **app** (`app/`, Tauri 2) opens your microphone, feeds the engine on its own thread
+  and writes the clean voice to the virtual microphone. The model never runs in the audio
+  callback, so a slow frame can never glitch the device.
 - The **virtual microphone** (`virtual_mic/`) is Hush's Core Audio plug-in on macOS,
   VB-CABLE on Windows (Hush's own driver is built and waits for Microsoft signing), and a
   PipeWire/PulseAudio virtual source on Linux.
@@ -122,59 +177,45 @@ flowchart LR
 [Architecture](docs/ARCHITECTURE.md) has the details: threads, buffers, clock drift and the
 delay budget.
 
-## Performance
-
-One frame is 20 ms of audio, so each frame must finish in less than 20 ms.
-
-| Quality | Apple M1, 2 threads | Intel x64 (cloud), 4 threads |
-| --- | ---: | ---: |
-| **Light** (16 kHz, best for calls) | **11.7 ms** p99 | **17.1 ms** p99 |
-| **Balanced** (24 kHz) | 21.3 ms p99 | 21.4 ms p99 |
-| **Studio** (48 kHz, full band) | 36.8 ms p99 | 23.7 ms p99 (8 threads) |
-
-- **Delay:** about 60–80 ms plus device buffers (VB-CABLE adds about 84 ms on Windows).
-- **Memory:** 80–250 MB, mostly the model. It does not grow: 60 minutes with a USB headset
-  gave 75.65 → 75.63 MB and no lost audio.
-- **CPU:** the app shows the live engine load. Automatic threads add a core only when one
-  is not enough.
-
-[Performance](docs/PERFORMANCE.md) has every measurement and how to repeat it.
-
 ## How it compares
 
-Hush (NVIDIA RE-USE) against DeepFilterNet 3 and RNNoise on the VoiceBank-DEMAND test set
-(824 files), scored at 16 kHz. Higher is better; **bold** is the best.
+Hush's two engines against RNNoise, the open-source suppressor many apps use, on the
+VoiceBank-DEMAND test set (824 recordings, scored at 16 kHz). Higher is better; **bold** is
+the best.
 
 | System | PESQ | STOI | SI-SDR | DNSMOS OVRL | CPU per audio second (1 thread) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Noisy input | 1.97 | 0.921 | 8.4 dB | 2.70 | – |
+| No noise removal | 1.97 | 0.921 | 8.4 dB | 2.70 | – |
 | RNNoise | 2.11 | 0.890 | 12.3 dB | 2.94 | 5% |
-| **Hush Light** (app default: 16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
-| Hush, 16 kHz, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
-| DeepFilterNet 3 | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
+| **Hush · DeepFilterNet 3** (default) | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
+| Hush · NVIDIA RE-USE, Light (16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
+| Hush · NVIDIA RE-USE, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
 
-What this shows, plainly:
-
-- **Hush is far ahead of RNNoise** on every metric.
-- **DeepFilterNet 3 scores higher than Hush Light on every metric** and uses about 15 times
-  less CPU. With 8 layers, RE-USE has the best DNSMOS (a neural estimate of what listeners
-  think), but DeepFilterNet 3 still leads on PESQ, STOI and SI-SDR.
-- **Hush reproduces NVIDIA's published RE-USE scores** (PESQ 2.77 against 2.76 in the paper).
+- **Hush leads every metric.** DeepFilterNet 3 has the best PESQ, STOI and SI-SDR at about
+  6% of a core; RE-USE with 8 layers has the most natural sound by DNSMOS.
+- **Why two engines:** DeepFilterNet 3 is light, accurate and MIT/Apache-licensed, so it is
+  the default and fine for work. RE-USE is NVIDIA's research model with a noncommercial
+  license and needs a faster CPU, for people who want its sound.
+- **Both are reproduced faithfully.** Hush's RE-USE matches NVIDIA's published PESQ (2.77
+  against 2.76) and NVIDIA's GPU output at 100+ dB. DeepFilterNet 3 runs the authors'
+  own libDF code and model.
 - **Caveats:** one dataset, objective metrics only, no listening test. The test speech is
   VCTK and the noise is DEMAND, which is close to DeepFilterNet 3's training data.
 
-[Comparison](docs/COMPARISON.md) has the method, all metrics, results by noise level,
-published numbers, delays and the script to repeat it.
+[Comparison](docs/COMPARISON.md) has the method, all metrics, results by noise level, delays
+and the script to repeat it. [Performance](docs/PERFORMANCE.md) has frame times, delay and
+long runs.
 
 ## Roadmap
 
 - [x] **Noise cancellation**: real time, on device, in every app
+- [x] **Studio**: clean up recordings on your computer
+- [x] **Meetings**: Google Calendar without signing in
 - [ ] **Voice translation**
 - [ ] **Agent assist**
 - [ ] **Speech analytics**
 - [ ] **Voice security**
 - [ ] Hush's own signed Windows driver (lower delay than VB-CABLE)
-- [ ] GPU and NPU acceleration
 
 Want to help? Pick an item and open an issue. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -206,32 +247,42 @@ let mut clean = Vec::new();
 denoiser.process_into(&noisy_chunk, &mut clean)?; // any chunk size, mono f32
 ```
 
+`hush_core::DeepFilter` offers DeepFilterNet 3 behind the same interface, and
 `hush_core::live::LiveWorker` adds lock-free device queues, rate conversion, clock-drift
-control and meters. [More](crates/hush-core/README.md).
+control and meters for either. [More](crates/hush-core/README.md).
 
 ## FAQ
 
 <details>
 <summary><b>Is it really free?</b></summary>
 
-Yes. No account, no trial, no limits. The code is Apache-2.0.
+Yes. No account, no trial, no minute limits. The code is Apache-2.0.
 </details>
 
 <details>
 <summary><b>Can I use it at work?</b></summary>
 
-The app and the engine are Apache-2.0. The **voice model** is NVIDIA's and comes with the
+Yes, with the default engine. The app and the engine are Apache-2.0, and DeepFilterNet 3
+is MIT or Apache-2.0. The optional **NVIDIA RE-USE** model comes with the
 [NVIDIA One-Way Noncommercial License](https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE):
-the weights are for **non-commercial research and educational use**. Hush AI asks you to
-accept this before it downloads them. Check the license before you use Hush AI for
-commercial work.
+its weights are for **non-commercial research and educational use**, and Hush asks you to
+accept that before it downloads them.
 </details>
 
 <details>
 <summary><b>Does my voice leave my computer?</b></summary>
 
-No. Hush AI connects to the internet only to download the model once and to check GitHub
-for updates (you can turn this off).
+No. Hush AI connects to the internet only to download a model once, to check GitHub for
+updates (you can turn this off), and, if you connect it, to read your calendar's iCal
+address from Google.
+</details>
+
+<details>
+<summary><b>Is the calendar address safe in Hush?</b></summary>
+
+It is stored only in Hush's settings folder on your computer and never written to logs.
+Hush never sees your Google account. Like any secret link, anyone who has it can read the
+calendar, so reset it in Google Calendar if it leaks; Hush shows how to connect again.
 </details>
 
 <details>
@@ -255,18 +306,22 @@ More in the [user guide](docs/GUIDE.md).
 
 ## Documentation
 
+All docs are also on the website at [alshell7.github.io/hush-ai/docs](https://alshell7.github.io/hush-ai/docs/).
+
 | Page | For |
 | --- | --- |
-| [User guide](docs/GUIDE.md) | Install, set up, use in apps, fix problems |
+| [User guide](docs/GUIDE.md) | Install, set up, use in apps, Studio, Meetings, fix problems |
 | [Architecture](docs/ARCHITECTURE.md) | How audio flows through Hush |
 | [Performance](docs/PERFORMANCE.md) | CPU time, delay, long runs |
 | [Accuracy](docs/ACCURACY.md) | Comparison with NVIDIA's GPU reference |
-| [Comparison](docs/COMPARISON.md) | Hush vs DeepFilterNet 3 and RNNoise, measured |
+| [Comparison](docs/COMPARISON.md) | Hush's engines vs RNNoise, measured |
 | [Virtual microphone](virtual_mic/README.md) | The drivers for macOS and Windows |
 | [Build and release](docs/BUILD.md) | Develop, test, release |
 
 ## Credits
 
+- [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) by Hendrik Schröter: the
+  DeepFilterNet 3 model and its Rust inference (MIT or Apache-2.0).
 - [NVIDIA Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE): the speech
   enhancement model and weights (NVIDIA One-Way Noncommercial License).
 - [re-use-rs](https://github.com/altunenes/re-use-rs) by altunenes: the Rust port this
@@ -274,11 +329,15 @@ More in the [user guide](docs/GUIDE.md).
 - Microsoft's [SysVAD sample](https://github.com/microsoft/Windows-driver-samples) (MS-PL)
   for the Windows driver, and Apple's Audio Server Plug-in design for macOS.
 - [VB-CABLE](https://vb-audio.com/Cable/) by VB-Audio, the free virtual cable Hush uses on Windows.
+- [Symphonia](https://github.com/pdeljanov/Symphonia) for reading audio files, and
+  [rrule](https://github.com/fmeringdal/rust-rrule) for repeating calendar events.
+- App logos from [gilbarbara/logos](https://github.com/gilbarbara/logos) and
+  [Simple Icons](https://simpleicons.org) (CC0). The names and logos belong to their owners.
 - [Tauri](https://tauri.app), [HeroUI](https://heroui.com), [Motion](https://motion.dev) and the Geist font.
 
-Hush AI is an independent open-source project. It is not affiliated with NVIDIA, VB-Audio
-or any app named here.
+Hush AI is an independent open-source project. It is not affiliated with or endorsed by
+NVIDIA, the DeepFilterNet authors, VB-Audio, Krisp, Adobe, Google or any app named here.
 
 ## License
 
-Code: [Apache-2.0](LICENSE). Third-party parts and the model: see [NOTICE](NOTICE).
+Code: [Apache-2.0](LICENSE). Third-party parts and the models: see [NOTICE](NOTICE).

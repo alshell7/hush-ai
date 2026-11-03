@@ -1,19 +1,20 @@
-// The main screen: the switch, your microphone, what apps hear, and the few settings
-// people change often.
+// The Live tab: the switch, your microphone, what apps hear, and the few settings people
+// change often.
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { DevicePicker, Segmented, Tip, Toggle } from "../components/Controls";
-import { AgentIcon, ChartIcon, GearIcon, HeadphonesIcon, LockIcon, MicIcon, SparkleIcon, TranslateIcon, WarningIcon } from "../components/Icons";
+import { AppGuideTip, GUIDES } from "../components/AppGuides";
+import { AppIcon } from "../components/AppIcons";
+import { DevicePicker, Segmented, Tip } from "../components/Controls";
+import { AgentIcon, ArrowRightIcon, CalendarIcon, ChartIcon, LockIcon, MicIcon, SparkleIcon, TranslateIcon } from "../components/Icons";
 import { LevelStrip, useMeters } from "../components/Meters";
-import { APPS, AppHint } from "../components/Mockups";
-import { Mark, Wordmark } from "../components/Mochi";
+import { Mark } from "../components/Mochi";
+import { NoiseMorph } from "../components/NoiseMorph";
 import { PowerHero } from "../components/PowerHero";
-import { TitleBar } from "../components/TitleBar";
 import { VmicSetup } from "../components/VmicSetup";
+import { features, useFeatures } from "../lib/features";
 import { api, type Quality } from "../lib/ipc";
 import { refreshDevices, refreshVmic, saveSettings, useApp } from "../lib/store";
-import { installUpdate } from "../lib/updater";
-import { SettingsPanel } from "./Settings";
+import { clockTime, relative, useNow } from "../lib/time";
 
 const QUALITY: { value: Quality; label: string; hint: string }[] = [
   { value: "light", label: "Light", hint: "16 kHz voice band. Lowest delay and CPU. Best for calls." },
@@ -29,13 +30,11 @@ export const ROADMAP = [
   { icon: LockIcon, title: "Voice security", state: "soon" },
 ] as const;
 
-export function Home() {
+export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
   const settings = useApp((s) => s.settings)!;
   const engine = useApp((s) => s.engine)!;
   const devices = useApp((s) => s.devices);
   const vmic = useApp((s) => s.vmic);
-  const update = useApp((s) => s.update);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const load = useRef<HTMLSpanElement>(null);
 
@@ -65,40 +64,11 @@ export function Home() {
   const toggle = () => api.setEnabled(!(on || busy));
 
   const headline = engine.status === "error" ? "Hush needs a moment" : on ? "Your voice, without the noise" : busy ? "Waking up…" : "Hush is resting";
-  const sub =
-    engine.status === "error"
-      ? engine.message
-      : on
-        ? engine.listen
-          ? "You hear yourself in your headphones. Apps get your voice again when Listen is off."
-          : "Apps hear you through Hush AI Microphone."
-        : "Turn on to remove background noise in every app.";
+  const sub = engine.status === "error" ? engine.message : on ? "Apps hear you through Hush AI Microphone." : "Turn on to remove background noise in every app.";
 
   return (
-    <div className="relative flex h-full flex-col">
-      <TitleBar>
-        <Wordmark size={26} />
-        <div data-tauri-drag-region className="flex-1" />
-        <AnimatePresence>
-          {update && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="btn btn-opal btn-sm no-drag"
-              disabled={update.state !== "ready"}
-              onClick={() => installUpdate()}
-            >
-              {update.state === "ready" ? `Restart to update to ${update.version}` : `Downloading ${update.version}…`}
-            </motion.button>
-          )}
-        </AnimatePresence>
-        <button className="btn btn-ghost btn-icon group no-drag" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
-          <GearIcon size={19} />
-        </button>
-      </TitleBar>
-
-      <main className="grid min-h-0 flex-1 grid-cols-[1.08fr_1fr] gap-4 px-5 pb-5">
+    <>
+      <main className="grid min-h-0 flex-1 grid-cols-[1.08fr_1fr] gap-4">
         {/* Hero */}
         <section className="glass flex min-h-0 flex-col p-6">
           <div className="flex items-center justify-between">
@@ -133,7 +103,7 @@ export function Home() {
             />
             <div className="grid grid-cols-2 gap-3">
               <MeterTile label="Your microphone" source="input" color="rgba(30,27,24,.5)" idle={!on} />
-              <MeterTile label={engine.listen ? "In your headphones" : "Hush AI Microphone"} source="output" color="#1f9d72" idle={!on} accent />
+              <MeterTile label="Hush AI Microphone" source="output" color="#1f9d72" idle={!on} accent />
             </div>
           </div>
         </section>
@@ -146,7 +116,7 @@ export function Home() {
                 <div className="flex items-center gap-2 text-[15px] font-semibold">
                   <Mark size={18} /> Hush AI Microphone
                 </div>
-                <p className="mt-1 text-[13px] leading-snug text-muted">Choose it as the microphone in your apps. Hover an app to see where.</p>
+                <p className="mt-1 text-[13px] leading-snug text-muted">Choose it as the microphone in your apps. Hover an app to watch where.</p>
               </div>
               {vmic && vmic.state !== "ready" ? (
                 <button className="btn btn-primary btn-sm shrink-0" onClick={() => setSetupOpen(true)}>
@@ -158,16 +128,14 @@ export function Home() {
                 </span>
               )}
             </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {APPS.map((app) => (
-                <Tip key={app.name} content={<AppHint {...app} />}>
-                  <span className="chip cursor-default bg-white/80 transition-colors hover:bg-white" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
-                    {app.name}
-                  </span>
-                </Tip>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {GUIDES.map((guide) => (
+                <AppGuideTip key={guide.app} app={guide.app} />
               ))}
             </div>
           </Card>
+
+          <NextMeetingCard onOpenMeetings={onOpenMeetings} />
 
           <Card>
             <div className="mb-3 flex items-center justify-between">
@@ -182,39 +150,12 @@ export function Home() {
           </Card>
 
           <Card>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f4efe8] text-ink-2">
-                  <HeadphonesIcon size={20} />
-                </span>
-                <div>
-                  <div className="text-[15px] font-semibold">Listen to yourself</div>
-                  <div className="text-[12.5px] text-muted">Hear Hush in your headphones</div>
-                </div>
-              </div>
-              <Toggle label="Listen to yourself" on={engine.listen} onChange={(v) => api.setListen(v)} />
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[15px] font-semibold">Noise in, voice out</span>
+              <span className="eyebrow">{on ? "Working" : "When on"}</span>
             </div>
-            <AnimatePresence initial={false}>
-              {engine.listen && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="space-y-2 pt-3">
-                    <Segmented
-                      size="sm"
-                      label="Compare"
-                      value={engine.original ? "original" : "hush"}
-                      options={[
-                        { value: "hush", label: "With Hush" },
-                        { value: "original", label: "Original" },
-                      ]}
-                      onChange={(v) => api.setOriginal(v === "original")}
-                    />
-                    <p className="flex items-center gap-1.5 text-[12px] text-amber">
-                      <WarningIcon size={14} /> Use headphones, or your speakers will echo.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <NoiseMorph />
+            <p className="mt-2.5 text-[12px] leading-snug text-muted">Keyboards, fans, dogs and traffic stay with Hush. Your apps get only your voice.</p>
           </Card>
 
           <Card>
@@ -237,8 +178,6 @@ export function Home() {
         </section>
       </main>
 
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
       <AnimatePresence>
         {setupOpen && (
           <Modal onClose={() => setSetupOpen(false)} title="Set up Hush AI Microphone">
@@ -246,6 +185,45 @@ export function Home() {
           </Modal>
         )}
       </AnimatePresence>
+    </>
+  );
+}
+
+/** The next call, or an invitation to connect the calendar. */
+function NextMeetingCard({ onOpenMeetings }: { onOpenMeetings: () => void }) {
+  const calendar = useFeatures((s) => s.calendar);
+  const now = useNow(30_000);
+  const next = calendar?.meetings.find((m) => !m.allDay && m.end > now && m.start - now < 18 * 3600_000);
+
+  if (!calendar?.connected) {
+    return (
+      <button className="glass group flex shrink-0 items-center gap-3 p-4 text-left transition-transform duration-200 hover:-translate-y-0.5" onClick={onOpenMeetings}>
+        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f4efe8]">
+          <CalendarIcon size={19} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold">Turn on before every call</span>
+          <span className="block text-[12.5px] text-muted">Connect Google Calendar, no sign-in.</span>
+        </span>
+        <ArrowRightIcon size={17} className="text-muted transition-transform group-hover:translate-x-0.5" />
+      </button>
+    );
+  }
+  if (!next) return null;
+  return (
+    <div className="glass flex shrink-0 items-center gap-3 p-4">
+      {next.app ? <AppIcon app={next.app} size={20} tile /> : <span className="grid h-[35px] w-[35px] place-items-center rounded-xl bg-[#f4efe8]"><CalendarIcon size={18} /></span>}
+      <button className="min-w-0 flex-1 text-left" onClick={onOpenMeetings}>
+        <span className="block truncate text-[14px] font-semibold">{next.title}</span>
+        <span className="block text-[12.5px] text-muted">
+          {clockTime(next.start)} · {relative(next.start, next.end, now)}
+        </span>
+      </button>
+      {next.app && (
+        <button className="btn btn-primary btn-sm" onClick={() => features.calendarJoin(next.id)}>
+          Join
+        </button>
+      )}
     </div>
   );
 }

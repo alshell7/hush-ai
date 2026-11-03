@@ -1,9 +1,9 @@
 //! Noise cancellation on and off: one live session at a time, its meters, and recovery.
 //!
 //! The live session (`audio::live_io`) opens the microphone, runs the model on its own
-//! thread and writes to the Hush AI Microphone, or to headphones while "Listen" is on.
-//! This module starts and stops it, restarts it when settings change, retries after device
-//! errors and sends state and meter events to the windows.
+//! thread and writes to the Hush AI Microphone. This module starts and stops it, restarts it
+//! when settings change, retries after device errors and sends state and meter events to the
+//! windows. It also builds the model that Studio uses for files.
 use crate::audio::audio_io::{devices, Message, Selection, Sender, Settings as AudioSettings};
 use crate::audio::live_io::{self, control::StopReason, LiveSession, StopReport};
 use crate::settings::Settings;
@@ -34,10 +34,6 @@ pub enum Status {
 pub struct EngineState {
     pub status: Status,
     pub message: Option<String>,
-    /// Output goes to headphones instead of the Hush AI Microphone.
-    pub listen: bool,
-    /// Listen to the unprocessed microphone (A/B).
-    pub original: bool,
     pub threads: usize,
     pub input_rate: u32,
     pub model_rate: u32,
@@ -117,8 +113,6 @@ impl Engine {
                 state: EngineState {
                     status: Status::Off,
                     message: None,
-                    listen: false,
-                    original: false,
                     threads: 0,
                     input_rate: 0,
                     model_rate: 0,
@@ -195,10 +189,9 @@ impl Engine {
         };
         let (input, notice) = input_selection(&settings);
         let output = output_selection(&settings);
-        let audio = audio_settings(&settings, model, !inner.state.listen);
+        let audio = audio_settings(&settings, model, true);
         inner.state.status = Status::Starting;
         inner.state.message = notice;
-        inner.state.original = false;
         self.closed.store(false, Ordering::Relaxed);
         match live_io::start(input, output, audio, self.sender(), inner.id) {
             Ok(session) => inner.session = Some(session),
@@ -225,31 +218,6 @@ impl Engine {
         }
     }
 
-    /// Send output to headphones (true) or to the Hush AI Microphone (false).
-    pub fn set_listen(&self, listen: bool) {
-        let running = {
-            let mut inner = self.inner.lock().unwrap();
-            if inner.state.listen == listen {
-                return;
-            }
-            inner.state.listen = listen;
-            self.publish(&inner);
-            inner.session.is_some()
-        };
-        if running || listen {
-            self.start();
-        }
-    }
-
-    pub fn set_original(&self, original: bool) {
-        let mut inner = self.inner.lock().unwrap();
-        inner.state.original = original;
-        if let Some(meters) = &inner.meters {
-            meters.set_original(original);
-        }
-        self.publish(&inner);
-    }
-
     /// Stop for good before the app exits, and wait briefly for the devices to close.
     pub fn shutdown(&self) {
         self.quitting.store(true, Ordering::Relaxed);
@@ -269,7 +237,6 @@ impl Engine {
         match message {
             Message::LiveStarted(id, result) if id == inner.id => match result {
                 Ok((rates, meters)) => {
-                    meters.set_original(inner.state.original);
                     inner.meters = Some(meters);
                     inner.retries = 0;
                     let state = &mut inner.state;
@@ -321,8 +288,6 @@ impl Engine {
         if report.reason == StopReason::Requested {
             inner.state.status = Status::Off;
             inner.state.message = None;
-            // "Listen" ends with the session.
-            inner.state.listen = false;
             self.publish(&inner);
             return;
         }
@@ -402,6 +367,57 @@ pub fn audio_settings(settings: &Settings, model: PathBuf, virtual_mic: bool) ->
         prefill: 1,
         virtual_mic,
     }
+}
+
+/// The voice model for Studio: full band at `rate`, with a few threads, off the audio path.
+pub struct OfflineModel {
+    denoiser: hush_core::Denoiser,
+    label: &'static str,
+}
+
+impl OfflineModel {
+    pub fn process_into(&mut self, input: &[f32], out: &mut Vec<f32>) -> eyre::Result<()> {
+        for chunk in input.chunks(self.denoiser.frame()) {
+            self.denoiser.process_into(chunk, out)?;
+        }
+        Ok(())
+    }
+
+    /// The samples still owed for the input so far.
+    pub fn flush(&mut self) -> eyre::Result<Vec<f32>> {
+        self.denoiser.flush()
+    }
+
+    pub fn label(&self) -> &'static str {
+        self.label
+    }
+}
+
+pub fn offline_model(app: &AppHandle, rate: u32) -> eyre::Result<OfflineModel> {
+    let data_dir = app.path().app_data_dir()?;
+    let model = crate::model::find(&data_dir)
+        .ok_or_else(|| eyre::eyre!("Download the voice model first"))?;
+    let (_, layers) = crate::settings::Quality::Studio.model();
+    let mut denoiser = hush_core::Denoiser::with_config(
+        &model,
+        hush_core::Config {
+            layers,
+            sample_rate: rate,
+            look_ahead: 0,
+        },
+    )?;
+    let threads = thread::available_parallelism()
+        .map_or(2, |n| n.get() / 2)
+        .clamp(1, 4);
+    denoiser.set_worker_threads_with_options(
+        threads,
+        hush_core::WorkerPlacement::Unrestricted,
+        hush_core::WorkerScheduling::OsDefault,
+    )?;
+    Ok(OfflineModel {
+        denoiser,
+        label: "NVIDIA RE-USE · 48 kHz",
+    })
 }
 
 /// Reads meters 20 times per second while a window shows them; otherwise sleeps.

@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { Toasts, toast } from "./components/Toast";
+import { startFeatures } from "./lib/features";
 import { api, invoke, isTauri, on } from "./lib/ipc";
 import { selftest } from "./lib/selftest";
 import { startStore, useApp } from "./lib/store";
 import { startUpdateChecks } from "./lib/updater";
-import { Home } from "./views/Home";
+import { Main } from "./views/Main";
 import { Onboarding } from "./views/Onboarding";
 import { Widget } from "./views/Widget";
 
@@ -18,6 +19,7 @@ export function App() {
   useEffect(() => {
     startStore()
       .then(() => {
+        startFeatures();
         // Show the window only after the first frame, so it never flashes white.
         requestAnimationFrame(() => requestAnimationFrame(() => !isWidget && api.ready()));
         if (!isWidget) startUpdateChecks();
@@ -44,7 +46,7 @@ export function App() {
       <AnimatePresence mode="wait">
         {ready && (
           <motion.div key={onboarded ? "home" : "onboarding"} className="relative h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.99 }} transition={{ duration: 0.35 }}>
-            {onboarded ? <Home /> : <Onboarding />}
+            {onboarded ? <Main /> : <Onboarding />}
           </motion.div>
         )}
       </AnimatePresence>

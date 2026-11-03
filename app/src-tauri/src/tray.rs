@@ -97,6 +97,11 @@ pub fn update(app: &AppHandle, status: Status) {
 
 /// Show the widget at the tray icon with a hint, the first time the main window closes.
 pub fn show_hint(app: &AppHandle) {
+    show_widget(app);
+}
+
+/// Open the widget at the tray icon unless it is already open.
+pub fn show_widget(app: &AppHandle) {
     let Some(rect) = app
         .tray_by_id(TRAY)
         .and_then(|tray| tray.rect().ok().flatten())

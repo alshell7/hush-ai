@@ -124,7 +124,7 @@ function SettingsBody() {
 
       <Section title="Audio">
         <div className="py-3.5">
-          <div className="mb-2 text-[14px] font-[560]">Headphones for Listen</div>
+          <div className="mb-2 text-[14px] font-[560]">Speakers for the microphone test</div>
           <DevicePicker
             label="Headphones"
             icon={<HeadphonesIcon size={17} />}

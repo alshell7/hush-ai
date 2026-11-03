@@ -63,7 +63,7 @@ fn kernels(from: u32, to: u32) -> Vec<[f32; TAPS]> {
 /// Causal counterpart of `mono`, with 16 input samples of filter delay when rates differ.
 /// Rational phase and filter history persist across arbitrary device callback boundaries.
 /// Kernel allocation is confined to construction; `push` and `reset` retain all storage.
-pub(crate) struct StreamingMono {
+pub struct StreamingMono {
     from: u64,
     to: u64,
     step: u64,

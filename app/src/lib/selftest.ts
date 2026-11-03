@@ -1,6 +1,7 @@
 // End-to-end check of the real backend, run with HUSH_SELFTEST=1. It drives the same
 // commands as the UI and prints each result to the terminal, then quits.
 import { api, invoke, on, type Meters, type TestEvent } from "./ipc";
+import { selftestFeatures } from "./selftestFeatures";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const log = (line: string) => invoke("selftest_report", { line });
@@ -70,6 +71,7 @@ export async function selftest() {
     await api.setEnabled(true);
     await until("engine on again", () => (engine.status === "on" ? true : undefined), 20000);
     await log("engine on again");
+    await selftestFeatures(log);
     await log("PASS");
   } catch (error) {
     await log(`FAIL: ${error}`);

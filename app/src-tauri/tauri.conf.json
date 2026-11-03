@@ -31,7 +31,7 @@
         "title": "Hush AI",
         "url": "index.html#widget",
         "width": 340,
-        "height": 476,
+        "height": 532,
         "visible": false,
         "decorations": false,
         "transparent": true,
@@ -43,7 +43,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' asset: http://asset.localhost; connect-src ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPCACHE/studio/*"
+        ]
+      }
     },
     "macOSPrivateApi": true
   },

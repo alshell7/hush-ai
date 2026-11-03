@@ -2,7 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Hush AI windows",
-  "windows": ["main", "widget"],
+  "windows": [
+    "main",
+    "widget"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -12,14 +15,27 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "opener:default",
+    "dialog:default",
+    "opener:allow-reveal-item-in-dir",
+    "clipboard-manager:allow-read-text",
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://github.com/alshell7/hush-ai*" },
-        { "url": "https://alshell7.github.io/hush-ai*" },
-        { "url": "https://huggingface.co/*" },
-        { "url": "https://vb-audio.com/*" },
-        { "url": "https://github.com/NVlabs/*" }
+        {
+          "url": "https://github.com/alshell7/hush-ai*"
+        },
+        {
+          "url": "https://alshell7.github.io/hush-ai*"
+        },
+        {
+          "url": "https://huggingface.co/*"
+        },
+        {
+          "url": "https://vb-audio.com/*"
+        },
+        {
+          "url": "https://github.com/NVlabs/*"
+        }
       ]
     },
     "process:allow-restart",

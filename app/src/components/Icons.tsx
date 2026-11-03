@@ -200,3 +200,73 @@ export const WaveIcon = (p: P) => (
     <path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2M21 12h0" />
   </Svg>
 );
+
+export const VideoIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="6" width="13" height="12" rx="3" />
+    <path d="m16 10.5 5-3v9l-5-3" />
+  </Svg>
+);
+
+export const CalendarIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="3.5" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </Svg>
+);
+
+export const UploadIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v2.5A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5V15" />
+  </Svg>
+);
+
+export const ClockIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </Svg>
+);
+
+export const RefreshIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" />
+  </Svg>
+);
+
+export const LinkIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+  </Svg>
+);
+
+export const CopyIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="8.5" y="8.5" width="11" height="11" rx="2.5" />
+    <path d="M15.5 5.5A2 2 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7a2 2 0 0 0 1.5 2" />
+  </Svg>
+);
+
+export const FolderIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2.5H18a2.5 2.5 0 0 1 2.5 2.5v6.5A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5Z" />
+  </Svg>
+);
+
+export const PauseIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 6v12M15 6v12" />
+  </Svg>
+);
+
+export const BellIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15ZM10 20.5a2.2 2.2 0 0 0 4 0" />
+  </Svg>
+);
+
+export const SaveIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
+  </Svg>
+);

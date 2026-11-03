@@ -6,7 +6,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
-  server: { port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**"] } },
+  // The app imports the shared meeting-app logos from /assets/apps.
+  server: { port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**"] }, fs: { allow: [".."] } },
   envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {
     target: "es2022",
