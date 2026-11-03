@@ -12,6 +12,7 @@ pub enum State {
     /// Apps can choose Hush AI Microphone.
     Ready,
     /// One step with administrator rights is needed (install, update or rename).
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     Install,
     /// Windows: VB-CABLE must be downloaded and installed first.
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
