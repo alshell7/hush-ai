@@ -79,7 +79,11 @@ impl Default for Settings {
         Self {
             onboarded: false,
             license_accepted: false,
-            engine: Engine::DeepFilter,
+            engine: if hush_core::DEEP_FILTER_AVAILABLE {
+                Engine::DeepFilter
+            } else {
+                Engine::Reuse
+            },
             enabled: true,
             input: None,
             output: None,
@@ -114,7 +118,9 @@ impl Settings {
     fn parse(bytes: &[u8]) -> Option<Self> {
         let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
         let mut settings: Self = serde_json::from_value(value.clone()).ok()?;
-        if value.get("engine").is_none() && settings.onboarded {
+        if (value.get("engine").is_none() && settings.onboarded)
+            || !hush_core::DEEP_FILTER_AVAILABLE
+        {
             settings.engine = Engine::Reuse;
         }
         Some(settings)

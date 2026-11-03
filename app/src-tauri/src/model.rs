@@ -64,6 +64,8 @@ pub fn spec(engine: Engine) -> &'static Spec {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
+    /// False when this build cannot run the engine (DeepFilterNet 3 on Windows on ARM).
+    pub available: bool,
     pub installed: bool,
     pub path: Option<String>,
     pub size: u64,
@@ -119,6 +121,7 @@ pub fn find(data_dir: &Path, engine: Engine) -> Option<PathBuf> {
 pub fn info(data_dir: &Path, engine: Engine) -> ModelInfo {
     let path = find(data_dir, engine);
     ModelInfo {
+        available: engine != Engine::DeepFilter || hush_core::DEEP_FILTER_AVAILABLE,
         installed: path.is_some(),
         path: path.map(|p| p.display().to_string()),
         size: spec(engine).size,

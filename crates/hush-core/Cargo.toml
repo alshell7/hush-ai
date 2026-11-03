@@ -21,13 +21,16 @@ realfft = "3"
 safetensors = ">=0.7, <0.9"
 rtrb = "0.3"
 cpal = { version = "0.15", optional = true }
-# DeepFilterNet 3 (MIT or Apache-2.0): the official Rust inference with tract, as in `deep-filter` 0.5.6.
-deep_filter = { git = "https://github.com/Rikorose/DeepFilterNet", tag = "v0.5.6", default-features = false, features = ["tract"] }
 # The version libDF uses, for its frame buffers.
 ndarray = "0.15"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+
+# DeepFilterNet 3 (MIT or Apache-2.0): the official Rust inference with tract, as in `deep-filter` 0.5.6.
+# Not on Windows on ARM: tract 0.19 has no assembly for it (src/deepfilter_unavailable.rs).
+[target.'cfg(not(all(windows, target_arch = "aarch64")))'.dependencies]
+deep_filter = { git = "https://github.com/Rikorose/DeepFilterNet", tag = "v0.5.6", default-features = false, features = ["tract"] }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 matrixmultiply = "0.3"

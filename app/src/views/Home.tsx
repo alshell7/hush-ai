@@ -14,7 +14,7 @@ import { NoiseMorph } from "../components/NoiseMorph";
 import { PowerHero } from "../components/PowerHero";
 import { TranslateCard } from "../components/TranslateCard";
 import { VmicSetup } from "../components/VmicSetup";
-import { ENGINE_ORDER, ENGINES } from "../lib/engines";
+import { ENGINES, useEngineOrder } from "../lib/engines";
 import { features, useFeatures } from "../lib/features";
 import { api, type Quality } from "../lib/ipc";
 import { refreshDevices, refreshVmic, saveSettings, useApp } from "../lib/store";
@@ -37,6 +37,7 @@ export const ROADMAP = [
 export function Live({ onOpenMeetings, onOpenTranslate }: { onOpenMeetings: () => void; onOpenTranslate: () => void }) {
   const settings = useApp((s) => s.settings)!;
   const engine = useApp((s) => s.engine)!;
+  const engineOrder = useEngineOrder();
   const devices = useApp((s) => s.devices);
   const vmic = useApp((s) => s.vmic);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -167,7 +168,7 @@ export function Live({ onOpenMeetings, onOpenTranslate }: { onOpenMeetings: () =
             <Segmented
               label="Voice model"
               value={settings.engine}
-              options={ENGINE_ORDER.map((engine) => ({ value: engine, label: ENGINES[engine].label, hint: ENGINES[engine].hint }))}
+              options={engineOrder.map((engine) => ({ value: engine, label: ENGINES[engine].label, hint: ENGINES[engine].hint }))}
               onChange={(engine) => saveSettings({ engine })}
             />
             <AnimatePresence initial={false}>

@@ -51,6 +51,10 @@ compile_error!(
 
 pub mod audio;
 pub mod audio_thread;
+#[cfg_attr(
+    all(windows, target_arch = "aarch64"),
+    path = "deepfilter_unavailable.rs"
+)]
 mod deepfilter;
 mod denoiser;
 mod enhancer;
@@ -75,6 +79,9 @@ mod weights;
 mod workers;
 
 pub use deepfilter::{DeepFilter, DEEP_FILTER_RATE};
+
+/// Whether this build has DeepFilterNet 3. Windows on ARM does not yet.
+pub const DEEP_FILTER_AVAILABLE: bool = cfg!(not(all(windows, target_arch = "aarch64")));
 pub use denoiser::{Config, Denoiser};
 pub use enhancer::Enhancer;
 #[cfg(feature = "gpu")]

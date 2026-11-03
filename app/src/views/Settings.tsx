@@ -7,7 +7,7 @@ import { CloseIcon, ExternalIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from ".
 import { Wordmark } from "../components/Mochi";
 import { ModelDownload } from "../components/ModelDownload";
 import { toast } from "../components/Toast";
-import { ENGINE_ORDER, ENGINES, LICENSE_URL } from "../lib/engines";
+import { ENGINES, LICENSE_URL, useEngineOrder } from "../lib/engines";
 import { api, formatBytes, isTauri, openUrl, type Engine } from "../lib/ipc";
 import { features, setFeatures, TRANSLATE_SHORTCUT, useFeatures } from "../lib/features";
 import { saveSettings, setStore, useApp } from "../lib/store";
@@ -80,6 +80,7 @@ function SettingsBody() {
   const settings = useApp((s) => s.settings)!;
   const engine = useApp((s) => s.engine)!;
   const models = useApp((s) => s.models);
+  const engineOrder = useEngineOrder();
   const [adding, setAdding] = useState<Engine | null>(null);
   const devices = useApp((s) => s.devices);
   const vmic = useApp((s) => s.vmic);
@@ -188,7 +189,7 @@ function SettingsBody() {
       </Section>
 
       <Section title="Voice models">
-        {ENGINE_ORDER.map((kind) => {
+        {engineOrder.map((kind) => {
           const info = models?.[kind];
           const inUse = settings.engine === kind;
           return (

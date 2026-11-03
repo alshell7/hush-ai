@@ -34,6 +34,8 @@ export interface EngineState {
 }
 
 export interface ModelInfo {
+  /** False when this build cannot run the engine (DeepFilterNet 3 on Windows on ARM). */
+  available?: boolean;
   installed: boolean;
   path: string | null;
   size: number;

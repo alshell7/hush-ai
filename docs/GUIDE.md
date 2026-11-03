@@ -9,7 +9,7 @@ Download the file for your computer from the
 
 | Computer | File | First start |
 | --- | --- | --- |
-| Windows 10 or 11 | `…_x64-setup.exe` (ARM: `…_arm64-setup.exe`) | SmartScreen: **More info › Run anyway** |
+| Windows 10 or 11 | `…_x64-setup.exe` (ARM: `…_arm64-setup.exe`, NVIDIA RE-USE only for now: DeepFilterNet 3's inference library does not build for Windows on ARM yet) | SmartScreen: **More info › Run anyway** |
 | Mac with Apple silicon | `…_aarch64.dmg` | Right-click the app › **Open** (or System Settings › Privacy & Security › **Open Anyway**) |
 | Intel Mac | `…_x64.dmg` | Same as above |
 | Linux | `.AppImage`, `.deb` or `.rpm` | Needs PipeWire or PulseAudio (`pactl`) |

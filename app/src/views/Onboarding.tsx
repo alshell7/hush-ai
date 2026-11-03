@@ -10,7 +10,7 @@ import { AppGuidePicker } from "../components/AppGuides";
 import { Mochi, Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
 import { VmicSetup } from "../components/VmicSetup";
-import { ENGINE_ORDER, ENGINES, useModelDownload } from "../lib/engines";
+import { ENGINES, useEngineOrder, useModelDownload } from "../lib/engines";
 import { api, formatBytes, on, openUrl, type TestEvent } from "../lib/ipc";
 import { saveSettings, useApp } from "../lib/store";
 
@@ -153,6 +153,7 @@ function Welcome({ onNext }: { onNext: () => void }) {
 function ModelStep({ onNext }: { onNext: () => void }) {
   const settings = useApp((s) => s.settings)!;
   const engine = settings.engine;
+  const engineOrder = useEngineOrder();
   const [agreed, setAgreed] = useState(settings.licenseAccepted);
   const model = useModelDownload(engine);
   const [done, setDone] = useState(model.installed);
@@ -184,8 +185,8 @@ function ModelStep({ onNext }: { onNext: () => void }) {
       text="Both run on your CPU, so your voice never leaves this computer. You can switch later."
       art={<ProgressRing fraction={done ? 1 : fraction} state={state} size={model.size} />}
     >
-      <div role="radiogroup" aria-label="Voice model" className="grid grid-cols-2 gap-2.5">
-        {ENGINE_ORDER.map((kind) => {
+      <div role="radiogroup" aria-label="Voice model" className={`grid gap-2.5 ${engineOrder.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+        {engineOrder.map((kind) => {
           const active = kind === engine;
           return (
             <button

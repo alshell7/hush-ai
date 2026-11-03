@@ -21,6 +21,12 @@ export const LICENSE_URL = "https://huggingface.co/alshell7/hush-ai/blob/main/LI
 
 export const ENGINE_ORDER: Engine[] = ["deepFilter", "reuse"];
 
+/** The engines this build can run, in order. Windows on ARM has no DeepFilterNet 3 yet. */
+export function useEngineOrder(): Engine[] {
+  const deepFilter = useApp((s) => s.models?.deepFilter.available !== false);
+  return deepFilter ? ENGINE_ORDER : ENGINE_ORDER.filter((engine) => engine !== "deepFilter");
+}
+
 /** Download one model and follow its progress. Records that the license terms were accepted. */
 export function useModelDownload(engine: Engine) {
   const installed = useApp((s) => !!s.models?.[engine].installed);
