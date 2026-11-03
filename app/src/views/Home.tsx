@@ -1,6 +1,7 @@
 // The Live tab: the switch, your microphone, what apps hear, and the few settings people
 // change often.
 import { AnimatePresence, motion } from "motion/react";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { AppGuideTip, GUIDES } from "../components/AppGuides";
 import { AppIcon } from "../components/AppIcons";
@@ -33,7 +34,7 @@ export const ROADMAP = [
   { icon: LockIcon, title: "Voice security", state: "soon" },
 ] as const;
 
-export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
+export function Live({ onOpenMeetings, onOpenTranslate }: { onOpenMeetings: () => void; onOpenTranslate: () => void }) {
   const settings = useApp((s) => s.settings)!;
   const engine = useApp((s) => s.engine)!;
   const devices = useApp((s) => s.devices);
@@ -41,11 +42,23 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
   const [setupOpen, setSetupOpen] = useState(false);
   const load = useRef<HTMLSpanElement>(null);
 
-  const on = engine.status === "on";
-  const busy = engine.status === "starting";
+  // A session can run for Live Translate alone; noise cancellation is what the setting says.
+  const status = settings.enabled ? engine.status : "off";
+  const on = status === "on";
+  const busy = status === "starting";
 
+  // Meters arrive 20 times a second; the load is averaged over about two seconds and shown
+  // twice a second, so the number settles instead of flickering.
+  const smooth = useRef({ value: -1, shown: 0 });
   useMeters((m) => {
-    if (load.current) load.current.textContent = `${Math.round(Math.min(m.load, 9.99) * 100)}%`;
+    const s = smooth.current;
+    const sample = Math.min(m.load, 9.99);
+    s.value = s.value < 0 ? sample : s.value + (sample - s.value) * 0.05;
+    const now = performance.now();
+    if (load.current && now - s.shown > 500) {
+      s.shown = now;
+      load.current.textContent = `${Math.round(s.value * 100)}%`;
+    }
   });
 
   // Devices come and go; refresh while the window is in front.
@@ -64,10 +77,10 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
     };
   }, []);
 
-  const toggle = () => api.setEnabled(!(on || busy));
+  const toggle = () => api.setEnabled(!settings.enabled);
 
-  const headline = engine.status === "error" ? "Hush needs a moment" : on ? "Your voice, without the noise" : busy ? "Waking up…" : "Hush is resting";
-  const sub = engine.status === "error" ? engine.message : on ? "Apps hear you through Hush AI Microphone." : "Turn on to remove background noise in every app.";
+  const headline = status === "error" ? "Hush needs a moment" : on ? "Your voice, without the noise" : busy ? "Waking up…" : "Hush is resting";
+  const sub = status === "error" ? engine.message : on ? "Apps hear you through Hush AI Microphone." : "Turn on to remove background noise in every app.";
 
   return (
     <>
@@ -76,10 +89,10 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
         <section className="glass flex min-h-0 flex-col p-6">
           <div className="flex items-center justify-between">
             <span className="eyebrow">Noise cancellation</span>
-            <StatusChip status={engine.status} />
+            <StatusChip status={status} />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center gap-5 py-2">
-            <PowerHero status={engine.status} onToggle={toggle} />
+            <PowerHero status={status} onToggle={toggle} />
             <div className="text-center">
               <AnimatePresence mode="wait">
                 <motion.h1
@@ -138,7 +151,7 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
             </div>
           </Card>
 
-          <TranslateCard />
+          <TranslateCard onOpen={onOpenTranslate} />
 
           <NextMeetingCard onOpenMeetings={onOpenMeetings} />
 
@@ -283,7 +296,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [onClose]);
-  return (
+  return createPortal(
     <motion.div className="fixed inset-0 z-40 grid place-items-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <div className="absolute inset-0 bg-[rgba(30,27,24,.22)] backdrop-blur-[3px]" onClick={onClose} />
       <motion.div
@@ -304,6 +317,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

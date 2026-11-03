@@ -36,7 +36,7 @@ export function Onboarding() {
       </TitleBar>
       {/* Centered when it fits; scrolls from the top when the window is small, so nothing
           slides under the title bar, whose drag region would take the clicks. */}
-      <div className="relative flex min-h-0 flex-1 justify-center overflow-y-auto px-8 py-2">
+      <div className="no-scrollbar relative flex min-h-0 flex-1 justify-center overflow-y-auto px-8 py-2">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
@@ -80,13 +80,26 @@ export function Onboarding() {
   );
 }
 
+/** True in short windows (the app's minimum is 560 px tall), where steps get compact. */
+function useShort() {
+  const query = "(max-height: 700px)";
+  const [short, setShort] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const list = matchMedia(query);
+    const change = () => setShort(list.matches);
+    list.addEventListener("change", change);
+    return () => list.removeEventListener("change", change);
+  }, []);
+  return short;
+}
+
 function StepCard({ eyebrow, title, text, children, art }: { eyebrow: string; title: string; text: React.ReactNode; children: React.ReactNode; art?: React.ReactNode }) {
   return (
-    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-7 [@media(min-height:620px)]:p-9">
-      <div className="min-w-0 space-y-5">
+    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-6 [@media(min-height:700px)]:p-9">
+      <div className="min-w-0 space-y-4 [@media(min-height:700px)]:space-y-5">
         <div className="space-y-2">
           <div className="eyebrow">{eyebrow}</div>
-          <h1 className="text-[30px] font-[660] leading-[1.08] tracking-[-0.035em]">{title}</h1>
+          <h1 className="text-[26px] font-[660] leading-[1.08] tracking-[-0.035em] [@media(min-height:700px)]:text-[30px]">{title}</h1>
           <p className="max-w-[440px] text-[14.5px] leading-relaxed text-ink-2">{text}</p>
         </div>
         {children}
@@ -100,34 +113,35 @@ function StepCard({ eyebrow, title, text, children, art }: { eyebrow: string; ti
 
 function Welcome({ onNext }: { onNext: () => void }) {
   const features = [
-    { icon: ShieldIcon, title: "Private by design", text: "Your voice never leaves this computer." },
+    { icon: ShieldIcon, title: "Private by design", text: "Noise cancellation runs on this computer." },
     { icon: SparkleIcon, title: "Works in every app", text: "Zoom, Meet, Teams, Discord, OBS and more." },
-    { icon: LockIcon, title: "Free and open source", text: "No account. No cloud. No subscription." },
+    { icon: LockIcon, title: "Free and open source", text: "No account. No subscription. No limits." },
   ];
+  const short = useShort();
   return (
     <div className="flex flex-col items-center text-center">
       <motion.div initial={{ scale: 0.6, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.05 }} className="relative">
         <div className="absolute inset-0 -z-10 scale-150 rounded-full blur-3xl" style={{ background: "var(--h-opal)", opacity: 0.8 }} />
-        <Mochi size={132} mood="awake" />
+        <Mochi size={short ? 78 : 132} mood="awake" />
       </motion.div>
-      <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.5 }} className="mt-6 text-[44px] font-[680] leading-[1.02] tracking-[-0.045em]">
+      <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.5 }} className={`${short ? "mt-3 text-[34px]" : "mt-6 text-[44px]"} font-[680] leading-[1.02] tracking-[-0.045em]`}>
         Silence the noise.
         <br />
         <span className="opal-text">Keep your voice.</span>
       </motion.h1>
-      <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.5 }} className="mt-4 max-w-[480px] text-[15.5px] leading-relaxed text-ink-2">
+      <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28, duration: 0.5 }} className={`${short ? "mt-2 text-[14px]" : "mt-4 text-[15.5px]"} max-w-[480px] leading-relaxed text-ink-2`}>
         Hush AI removes background noise from your microphone in real time: keyboards, fans, dogs, traffic, cafés. Every app hears only you.
       </motion.p>
-      <div className="mt-8 grid w-full max-w-[680px] grid-cols-3 gap-3">
+      <div className={`${short ? "mt-4" : "mt-8"} grid w-full max-w-[680px] grid-cols-3 gap-3`}>
         {features.map((f, i) => (
-          <motion.div key={f.title} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 + i * 0.07, duration: 0.45 }} className="tile p-4 text-left">
+          <motion.div key={f.title} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 + i * 0.07, duration: 0.45 }} className={`tile ${short ? "p-3" : "p-4"} text-left`}>
             <f.icon size={20} className="mb-2 text-coral" />
             <div className="text-[13.5px] font-semibold">{f.title}</div>
             <div className="text-[12.5px] leading-snug text-muted">{f.text}</div>
           </motion.div>
         ))}
       </div>
-      <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="btn btn-primary group mt-8 h-12 px-7 text-[15px]" onClick={onNext}>
+      <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className={`btn btn-primary group ${short ? "mt-5" : "mt-8"} h-12 px-7 text-[15px]`} onClick={onNext}>
         Get started <ArrowRightIcon size={18} />
       </motion.button>
     </div>

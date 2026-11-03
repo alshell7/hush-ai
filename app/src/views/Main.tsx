@@ -2,7 +2,7 @@
 // one title bar.
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { CalendarIcon, GearIcon, PowerIcon, WaveIcon } from "../components/Icons";
+import { CalendarIcon, GearIcon, PowerIcon, TranslateIcon, WaveIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
 import { useFeatures } from "../lib/features";
@@ -13,9 +13,11 @@ import { Live } from "./Home";
 import { Meetings } from "./Meetings";
 import { SettingsPanel } from "./Settings";
 import { Studio } from "./Studio";
+import { Translate } from "./Translate";
 
 const TABS = [
   { id: "live", label: "Live", icon: PowerIcon },
+  { id: "translate", label: "Translate", icon: TranslateIcon },
   { id: "studio", label: "Studio", icon: WaveIcon },
   { id: "meetings", label: "Meetings", icon: CalendarIcon },
 ] as const;
@@ -29,9 +31,10 @@ export function Main() {
   const meetings = useFeatures((s) => s.calendar?.meetings);
   const now = useNow(30_000);
   const translateSetup = useFeatures((s) => s.translateSetup);
-  // The tray menu or the shortcut asked for the Gemini key setup, which lives on the Live tab.
+  const translating = useFeatures((s) => s.translate?.on);
+  // The tray menu or the shortcut asked for the Gemini key setup.
   useEffect(() => {
-    if (translateSetup) setTab("live");
+    if (translateSetup) setTab("translate");
   }, [translateSetup]);
   const soon = meetings?.some((m) => !m.allDay && m.app && m.start - now < 10 * 60_000 && m.end > now);
   const working = studio?.phase === "processing" || studio?.phase === "decoding" || studio?.phase === "recording";
@@ -58,14 +61,14 @@ export function Main() {
         <nav role="tablist" aria-label="Sections" className="no-drag absolute left-1/2 flex -translate-x-1/2 rounded-full p-[3px]" style={{ background: "rgba(30,27,24,.06)" }}>
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
-            const dot = (id === "meetings" && soon) || (id === "studio" && working && !active);
+            const dot = (id === "meetings" && soon) || (id === "studio" && working && !active) || (id === "translate" && translating && !active);
             return (
               <button
                 key={id}
                 role="tab"
                 aria-selected={active}
                 onClick={() => setTab(id)}
-                className="relative z-0 flex h-[34px] items-center gap-1.5 rounded-full px-4 text-[13px] font-[580] transition-colors duration-200"
+                className="relative z-0 flex h-[34px] items-center gap-1.5 rounded-full px-3.5 text-[13px] font-[580] transition-colors duration-200"
                 style={{ color: active ? "var(--h-ink)" : "var(--h-muted)" }}
               >
                 {active && (
@@ -112,7 +115,8 @@ export function Main() {
             exit={{ opacity: 0, y: -6, scale: 0.995 }}
             transition={{ duration: 0.24, ease: [0.2, 0.9, 0.1, 1] }}
           >
-            {tab === "live" && <Live onOpenMeetings={() => setTab("meetings")} />}
+            {tab === "live" && <Live onOpenMeetings={() => setTab("meetings")} onOpenTranslate={() => setTab("translate")} />}
+            {tab === "translate" && <Translate />}
             {tab === "studio" && <Studio />}
             {tab === "meetings" && <Meetings />}
           </motion.div>

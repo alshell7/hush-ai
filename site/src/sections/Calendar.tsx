@@ -14,7 +14,7 @@ const STEPS = [
   { title: "Copy the secret address", body: "Under your calendar, Integrate calendar › Secret address in iCal format." },
   { title: "Hush fills it in", body: "While the popup is open, Hush notices the copied address and pastes it for you." },
   { title: "Hush checks it", body: "It reads the calendar once and shows its name and how many meetings it found." },
-  { title: "Connect", body: "Your next meetings appear with the right app and a Join button." },
+  { title: "Connect", body: "Your next meetings appear with the right app and a Join button. Add your work and personal calendars too; a shared meeting shows once." },
 ];
 const STEP_MS = 3800;
 

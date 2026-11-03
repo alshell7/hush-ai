@@ -38,6 +38,8 @@ pub struct EngineState {
     pub message: Option<String>,
     /// The model of the current or last session.
     pub engine: Model,
+    /// The session removes noise. `false` while it only passes the voice to Live Translate.
+    pub noise: bool,
     pub threads: usize,
     pub input_rate: u32,
     pub model_rate: u32,
@@ -121,6 +123,7 @@ impl Engine {
                     status: Status::Off,
                     message: None,
                     engine: Model::DeepFilter,
+                    noise: false,
                     threads: 0,
                     input_rate: 0,
                     model_rate: 0,
@@ -154,7 +157,13 @@ impl Engine {
 
     fn publish(&self, inner: &Inner) {
         let _ = self.app.emit("engine", &inner.state);
-        crate::tray::update(&self.app, inner.state.status);
+        // A pass-through session for Live Translate is not noise cancellation.
+        let shown = if inner.state.noise || inner.state.status == Status::Error {
+            inner.state.status
+        } else {
+            Status::Off
+        };
+        crate::tray::update(&self.app, shown);
     }
 
     fn sender(&self) -> Sender {
@@ -200,6 +209,9 @@ impl Engine {
         let (input, notice) = input_selection(&settings);
         let output = output_selection(&settings);
         let mut audio = audio_settings(&settings, model, true);
+        // With noise cancellation off, a session runs only for Live Translate: pass-through.
+        audio.bypass = !settings.enabled;
+        inner.state.noise = settings.enabled;
         // Live Translate can switch on at any time during this session.
         let translator = app
             .state::<Arc<crate::translate::Translator>>()
@@ -346,7 +358,8 @@ impl Engine {
             let Some(engine) = app.try_state::<Arc<Engine>>() else {
                 return;
             };
-            let wanted = app.state::<crate::AppState>().settings().enabled;
+            let wanted = app.state::<crate::AppState>().settings().enabled
+                || app.state::<Arc<crate::translate::Translator>>().info().on;
             let state = engine.state();
             if wanted && state.status == Status::Error && !engine.is_running() {
                 engine.start();

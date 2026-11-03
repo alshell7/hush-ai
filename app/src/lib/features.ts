@@ -14,6 +14,8 @@ declare module "./ipc" {
     calendarSync: number;
     translateFrom: string;
     translateTo: string;
+    translateAsk: boolean;
+    translateHistory: boolean;
   }
   interface EventMap {
     studio: StudioEvent;
@@ -21,6 +23,7 @@ declare module "./ipc" {
     "meeting-soon": MeetingSoon;
     translate: TranslateInfo;
     "translate-setup": null;
+    "translate-entry": TranslateEntry;
   }
 }
 
@@ -32,6 +35,21 @@ export interface Meeting {
   end: number;
   allDay: boolean;
   app: AppId | null;
+  /** The calendars it is in (their ids). */
+  calendars: string[];
+}
+
+export interface CalendarView {
+  id: string;
+  name: string | null;
+  source: string;
+  enabled: boolean;
+  status: "off" | "loading" | "ready" | "error";
+  error: string | null;
+  updated: number | null;
+  /** A colour slot, 0 to 5. */
+  color: number;
+  meetings: number;
 }
 
 export interface CalendarInfo {
@@ -41,8 +59,12 @@ export interface CalendarInfo {
   updated: number | null;
   source: string | null;
   name: string | null;
+  calendars: CalendarView[];
   meetings: Meeting[];
 }
+
+/** Calendar colours, by slot. */
+export const CALENDAR_COLORS = ["#e8735a", "#1f9d72", "#d99a1e", "#178f8a", "#d6457a", "#6b7cc9"];
 
 export interface CalendarPreview {
   source: string;
@@ -50,6 +72,7 @@ export interface CalendarPreview {
   meetings: number;
   calls: number;
   next: Meeting | null;
+  connected: boolean;
 }
 
 export interface MeetingSoon {
@@ -76,6 +99,15 @@ export type StudioEvent =
   | { phase: "cancelled" }
   | { phase: "error"; message: string };
 
+/** One translated phrase in the history. */
+export interface TranslateEntry {
+  at: number;
+  from: string;
+  to: string;
+  heard: string;
+  said: string;
+}
+
 export interface TranslateInfo {
   hasKey: boolean;
   keyHint: string | null;
@@ -96,7 +128,8 @@ export const GEMINI_KEY_PATTERN = /^(?:AIza[0-9A-Za-z_-]{35}|AQ\.[0-9A-Za-z_.-]{
 
 export const features = {
   studioOpen: (path: string) => invoke<void>("studio_open", { path }),
-  studioRecord: () => invoke<void>("studio_record"),
+  studioRecord: (input: string | null) => invoke<void>("studio_record", { input }),
+  studioMonitor: (on: boolean, input: string | null) => invoke<void>("studio_monitor", { on, input }),
   studioStop: () => invoke<void>("studio_stop"),
   studioCancel: () => invoke<void>("studio_cancel"),
   studioSave: (path: string) => invoke<void>("studio_save", { path }),
@@ -104,13 +137,16 @@ export const features = {
   calendarCheck: (address: string) => invoke<CalendarPreview>("calendar_check", { address }),
   calendarConnect: (address: string) => invoke<CalendarInfo>("calendar_connect", { address }),
   calendarOpenSettings: () => invoke<void>("calendar_open_settings"),
-  calendarDisconnect: () => invoke<CalendarInfo>("calendar_disconnect"),
+  calendarDisconnect: (id?: string) => invoke<CalendarInfo>("calendar_disconnect", { id: id ?? null }),
+  calendarSetEnabled: (id: string, enabled: boolean) => invoke<CalendarInfo>("calendar_set_enabled", { id, enabled }),
   calendarRefresh: () => invoke<void>("calendar_refresh"),
   calendarJoin: (id: string) => invoke<void>("calendar_join", { id }),
   translateInfo: () => invoke<TranslateInfo>("translate_info"),
   translateLanguages: () => invoke<string[]>("translate_languages"),
   translateSetKey: (key: string) => invoke<TranslateInfo>("translate_set_key", { key }),
   translateRemoveKey: () => invoke<TranslateInfo>("translate_remove_key"),
+  translateHistory: () => invoke<TranslateEntry[]>("translate_history"),
+  translateHistoryClear: () => invoke<void>("translate_history_clear"),
   translateSet: (on: boolean) => invoke<TranslateInfo>("translate_set", { on }),
   translateOpenKeys: () => invoke<void>("translate_open_keys"),
 };
@@ -156,12 +192,13 @@ interface FeatureState {
   translate: TranslateInfo | null;
   /** Set when something asks for the Gemini key setup (the tray menu or the shortcut). */
   translateSetup: number;
+  history: TranslateEntry[] | null;
   /** The latest Studio event; it survives switching tabs. */
   studio: StudioEvent | null;
   soon: MeetingSoon | null;
 }
 
-let state: FeatureState = { calendar: null, translate: null, translateSetup: 0, studio: null, soon: null };
+let state: FeatureState = { calendar: null, translate: null, translateSetup: 0, history: null, studio: null, soon: null };
 const subscribers = new Set<() => void>();
 
 export function setFeatures(patch: Partial<FeatureState>) {
@@ -181,6 +218,16 @@ export function useFeatures<T>(select: (s: FeatureState) => T): T {
 
 let started = false;
 
+/** Load the translation history the first time a view needs it. */
+export async function loadHistory() {
+  if (state.history) return;
+  try {
+    setFeatures({ history: await features.translateHistory() });
+  } catch {
+    setFeatures({ history: [] });
+  }
+}
+
 export async function startFeatures() {
   if (started) return;
   started = true;
@@ -190,6 +237,7 @@ export async function startFeatures() {
     on("meeting-soon", (soon) => setFeatures({ soon })),
     on("translate", (translate) => setFeatures({ translate })),
     on("translate-setup", () => setFeatures({ translateSetup: Date.now() })),
+    on("translate-entry", (entry) => state.history && setFeatures({ history: [...state.history, entry] })),
   ]);
   const [calendar, translate] = await Promise.allSettled([features.calendarInfo(), features.translateInfo()]);
   setFeatures({
@@ -204,7 +252,7 @@ export async function startFeatures() {
 function simMeetings(): Meeting[] {
   const at = (minutes: number) => Math.round((Date.now() + minutes * 60_000) / 60_000) * 60_000;
   const day = 24 * 60;
-  return [
+  const list: Omit<Meeting, "calendars">[] = [
     { id: "1", title: "Design review", start: at(12), end: at(57), allDay: false, app: "zoom" },
     { id: "2", title: "Team standup", start: at(95), end: at(110), allDay: false, app: "meet" },
     { id: "3", title: "Customer call · Northwind", start: at(190), end: at(235), allDay: false, app: "teams" },
@@ -213,9 +261,16 @@ function simMeetings(): Meeting[] {
     { id: "6", title: "Sprint planning", start: at(day + 150), end: at(day + 210), allDay: false, app: "meet" },
     { id: "7", title: "Game night", start: at(2 * day + 120), end: at(2 * day + 240), allDay: false, app: "discord" },
   ];
+  return list.map((m) => ({ ...m, calendars: ["c0"] }));
 }
 
-function simCalendar(connected: boolean): CalendarInfo {
+function simCalendar(connected: boolean, count = 2): CalendarInfo {
+  const names = ["Work", "Personal", "Team", "Family"];
+  const calendars: CalendarView[] = connected
+    ? names.slice(0, count).map((name, i) => ({ id: `c${i}`, name, source: "Google Calendar", enabled: true, status: "ready", error: null, updated: Date.now(), color: i, meetings: 0 }))
+    : [];
+  const meetings = connected ? simMeetings().map((m, i) => ({ ...m, calendars: i === 0 && count > 1 ? ["c0", "c1"] : [`c${i % count}`] })) : [];
+  calendars.forEach((c) => (c.meetings = meetings.filter((m) => m.calendars.includes(c.id)).length));
   return {
     connected,
     status: connected ? "ready" : "off",
@@ -223,7 +278,8 @@ function simCalendar(connected: boolean): CalendarInfo {
     updated: connected ? Date.now() : null,
     source: connected ? "Google Calendar" : null,
     name: connected ? "Work" : null,
-    meetings: connected ? simMeetings() : [],
+    calendars,
+    meetings,
   };
 }
 
@@ -236,6 +292,15 @@ const CAPTIONS: [string, string][] = [
 if (!isTauri) {
   const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
   let captionTimer = 0;
+  let levelTimer = 0;
+  const minute = 60_000;
+  const HISTORY: TranslateEntry[] = [
+    { at: Date.now() - 26 * 60 * minute, from: "en", to: "es", heard: "Thanks everyone for joining today's review.", said: "Gracias a todos por unirse a la revisión de hoy." },
+    { at: Date.now() - 26 * 60 * minute + 40_000, from: "en", to: "es", heard: "Let's start with the launch plan for next week.", said: "Empecemos con el plan de lanzamiento de la próxima semana." },
+    { at: Date.now() - 50 * minute, from: "en", to: "de", heard: "Could you share the latest numbers before Friday?", said: "Könnten Sie die neuesten Zahlen vor Freitag teilen?" },
+    { at: Date.now() - 48 * minute, from: "en", to: "de", heard: "That works for me, thank you.", said: "Das passt mir, danke." },
+    { at: Date.now() - 6 * minute, from: "en", to: "ja", heard: "Nice to meet you. I'm looking forward to working together.", said: "はじめまして。一緒に働けるのを楽しみにしています。" },
+  ];
   let translate: TranslateInfo = {
     hasKey: params.get("translate") !== "0",
     keyHint: params.get("translate") !== "0" ? "x9Qe" : null,
@@ -309,20 +374,28 @@ if (!isTauri) {
           const text = String(address).trim();
           if (!/^(https|webcal):\/\//.test(text)) return reject("Paste the address that starts with https://calendar.google.com/calendar/ical/");
           const meetings = simMeetings();
-          resolve({ source: "Google Calendar", name: "Work", meetings: meetings.length, calls: meetings.filter((m) => m.app).length, next: meetings[0] });
+          resolve({ source: "Google Calendar", name: calendar.calendars.length ? "Personal" : "Work", meetings: meetings.length, calls: meetings.filter((m) => m.app).length, next: meetings[0], connected: false });
         }, 700),
       ),
     calendar_connect: () =>
       new Promise((resolve) =>
         setTimeout(() => {
-          calendar = simCalendar(true);
+          calendar = simCalendar(true, Math.min(4, calendar.calendars.length + 1));
           emit("calendar", calendar);
           resolve(calendar);
         }, 500),
       ),
     calendar_open_settings: () => window.open("https://calendar.google.com/calendar/u/0/r/settings", "_blank", "noopener"),
-    calendar_disconnect: () => {
-      calendar = simCalendar(false);
+    calendar_set_enabled: ({ id, enabled }: Record<string, unknown>) => {
+      calendar = { ...calendar, calendars: calendar.calendars.map((c) => (c.id === id ? { ...c, enabled: !!enabled, status: enabled ? "ready" : "off" } : c)) };
+      const on = new Set(calendar.calendars.filter((c) => c.enabled).map((c) => c.id));
+      calendar = { ...calendar, meetings: simCalendar(true, calendar.calendars.length).meetings.filter((m) => m.calendars.some((c) => on.has(c))) };
+      emit("calendar", calendar);
+      return calendar;
+    },
+    calendar_disconnect: ({ id }: Record<string, unknown>) => {
+      const left = id ? calendar.calendars.length - 1 : 0;
+      calendar = left > 0 ? simCalendar(true, left) : simCalendar(false);
       emit("calendar", calendar);
       return calendar;
     },
@@ -372,6 +445,14 @@ if (!isTauri) {
         }, 160);
       }, 1100);
       return translate;
+    },
+    studio_monitor: ({ on }: Record<string, unknown>) => {
+      clearInterval(levelTimer);
+      if (on) levelTimer = window.setInterval(() => emit("mic-level", Math.min(1, 0.05 + Math.abs(Math.sin(Date.now() / 300)) * 0.5 * Math.random())), 60);
+    },
+    translate_history: () => HISTORY,
+    translate_history_clear: () => {
+      HISTORY.length = 0;
     },
     translate_open_keys: () => window.open("https://aistudio.google.com/apikey", "_blank", "noopener"),
   });

@@ -97,8 +97,9 @@ pub fn show_main(app: &AppHandle) {
 /// The shortcut that turns Live Translate on and off during a call.
 pub const TRANSLATE_SHORTCUT: &str = "CommandOrControl+Alt+T";
 
-/// Turn Live Translate on or off. It needs noise cancellation, so it turns that on too.
-/// Without an API key it opens Hush at the key setup instead.
+/// Turn Live Translate on or off. It works with noise cancellation off too: the live session
+/// then passes the microphone through unchanged. Without an API key it opens Hush at the key
+/// setup instead.
 pub fn set_translate(app: &AppHandle, on: bool) {
     let translator = app.state::<Arc<translate::Translator>>();
     if on && !translator.info().has_key {
@@ -108,21 +109,31 @@ pub fn set_translate(app: &AppHandle, on: bool) {
         return;
     }
     translator.set_on(app, on);
-    if on && !app.state::<AppState>().settings().enabled {
-        set_enabled(app, true);
-    }
-}
-
-/// Turn noise cancellation on or off, and remember it.
-pub fn set_enabled(app: &AppHandle, on: bool) {
-    let settings = app.state::<AppState>().update(|s| s.enabled = on);
-    let _ = app.emit("settings", &settings);
     let engine = app.state::<Arc<Engine>>().inner().clone();
+    let settings = app.state::<AppState>().settings();
+    if settings.enabled || !settings.onboarded {
+        return;
+    }
+    // Noise cancellation is off: a pass-through session carries the voice, only while translating.
     if on {
         app.state::<MicTest>().stop_monitor();
         std::thread::spawn(move || engine.start());
     } else {
-        app.state::<Arc<translate::Translator>>().set_on(app, false);
+        engine.stop();
+    }
+}
+
+/// Turn noise cancellation on or off, and remember it. While Live Translate is on, turning
+/// noise cancellation off keeps a pass-through session for the translation.
+pub fn set_enabled(app: &AppHandle, on: bool) {
+    let settings = app.state::<AppState>().update(|s| s.enabled = on);
+    let _ = app.emit("settings", &settings);
+    let engine = app.state::<Arc<Engine>>().inner().clone();
+    let translating = app.state::<Arc<translate::Translator>>().info().on;
+    if on || translating {
+        app.state::<MicTest>().stop_monitor();
+        std::thread::spawn(move || engine.start());
+    } else {
         engine.stop();
     }
 }
@@ -372,8 +383,21 @@ fn studio_open(app: AppHandle, path: String) {
 
 /// Studio: record from the microphone; `studio_stop` ends the recording and enhances it.
 #[tauri::command]
-fn studio_record(app: AppHandle) -> Reply<()> {
-    app.state::<Studio>().record(&app).map_err(text)
+fn studio_record(app: AppHandle, input: Option<String>) -> Reply<()> {
+    app.state::<Studio>().record(&app, input).map_err(text)
+}
+
+/// The level of a microphone before a Studio recording ("mic-level" events). Works while
+/// noise cancellation runs: both read the microphone in shared mode.
+#[tauri::command]
+fn studio_monitor(app: AppHandle, on: bool, input: Option<String>) -> Reply<()> {
+    let test = app.state::<MicTest>();
+    if on {
+        test.start_monitor(&app, input).map_err(text)
+    } else {
+        test.stop_monitor();
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -413,8 +437,8 @@ async fn calendar_connect(app: AppHandle, address: String) -> Reply<CalendarInfo
 
 /// What an address holds, without keeping it.
 #[tauri::command]
-async fn calendar_check(address: String) -> Reply<calendar::Preview> {
-    tauri::async_runtime::spawn_blocking(move || Calendar::check(&address))
+async fn calendar_check(app: AppHandle, address: String) -> Reply<calendar::Preview> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<Arc<Calendar>>().check(&address))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
@@ -432,9 +456,16 @@ fn calendar_open_settings(app: AppHandle) -> Reply<()> {
         .map_err(|e| e.to_string())
 }
 
+/// Forget one calendar (`id`), or all of them.
 #[tauri::command]
-fn calendar_disconnect(app: AppHandle) -> CalendarInfo {
-    app.state::<Arc<Calendar>>().disconnect(&app)
+fn calendar_disconnect(app: AppHandle, id: Option<String>) -> CalendarInfo {
+    app.state::<Arc<Calendar>>().disconnect(&app, id.as_deref())
+}
+
+/// Follow or pause one calendar.
+#[tauri::command]
+fn calendar_set_enabled(app: AppHandle, id: String, enabled: bool) -> CalendarInfo {
+    app.state::<Arc<Calendar>>().set_enabled(&app, &id, enabled)
 }
 
 #[tauri::command]
@@ -500,6 +531,19 @@ async fn translate_set_key(app: AppHandle, key: String) -> Reply<translate::Tran
     .await
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
+}
+
+/// Kept translations, oldest first.
+#[tauri::command]
+fn translate_history(
+    translator: tauri::State<Arc<translate::Translator>>,
+) -> Vec<translate::Entry> {
+    translator.history()
+}
+
+#[tauri::command]
+fn translate_history_clear(translator: tauri::State<Arc<translate::Translator>>) {
+    translator.clear_history();
 }
 
 #[tauri::command]
@@ -685,6 +729,7 @@ pub fn run() {
             test_stop,
             studio_open,
             studio_record,
+            studio_monitor,
             studio_stop,
             studio_cancel,
             studio_save,
@@ -692,6 +737,8 @@ pub fn run() {
             translate_languages,
             translate_set_key,
             translate_remove_key,
+            translate_history,
+            translate_history_clear,
             translate_set,
             translate_open_keys,
             calendar_info,
@@ -699,6 +746,7 @@ pub fn run() {
             calendar_connect,
             calendar_open_settings,
             calendar_disconnect,
+            calendar_set_enabled,
             calendar_refresh,
             calendar_join,
             open_main,

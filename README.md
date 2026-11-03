@@ -132,23 +132,31 @@ turn noise cancellation on or off, change the microphone, or join your next meet
 ### Studio: clean up a recording
 
 Open the **Studio** tab and drop a file: WAV, MP3, M4A/AAC, FLAC, OGG, or the sound of an
-MP4 or MOV. Or press **Record yourself**. Hush cleans it with the engine you chose, shows
+MP4 or MOV. Or press **Record yourself**, pick the microphone (its level shows as you
+speak) and press **Start recording**. Hush records that microphone as it is, then cleans
+the recording with the engine you chose; your calls are not affected. Hush shows
 both waveforms, and lets you switch between the original and the clean version while it
 plays. **Save clean WAV** writes a 48 kHz file wherever you like. Long files are fine: Hush
 reads and writes them in pieces, so memory stays flat.
 
 ### Live Translate: be heard in their language
 
-1. On the **Live** tab, press **Add your Gemini API key**. Hush opens
+1. On the **Translate** tab, press **Add your Gemini API key**. Hush opens
    [Google AI Studio](https://aistudio.google.com/apikey); press **Create API key** and copy
    it. Back in Hush, the key is noticed, checked with Google and kept in Hush's settings
    folder.
 2. Choose **I speak** and **They hear**; ⇄ swaps them.
-3. Turn on **Live Translate**. Your apps hear the translated voice through Hush AI
+3. Turn on **Live Translate**. Hush asks once before it starts, since your voice goes to
+   Google ("Don't ask again" skips it). Your apps hear the translated voice through Hush AI
    Microphone, and captions show what you said and what they hear.
 
+Live Translate works with noise cancellation on or off: on, Google gets your cleaned
+voice; off, Hush passes your voice through as it is. The **History** on the Translate tab
+keeps each phrase in both languages, grouped by day, with search and copy. It stays on your
+computer, and you can clear it or turn it off in Settings.
+
 In a call, switch it from the tray widget, the tray menu (**Translate my voice**) or with
-**Ctrl + Alt + T** (**⌘ ⌥ T** on macOS). While it is on, your noise-cancelled voice goes to
+**Ctrl + Alt + T** (**⌘ ⌥ T** on macOS). While it is on, your voice goes to
 Google's `gemini-3.5-live-translate-preview` model; Google's terms and pricing apply to your
 key (there is a free tier). The translation follows you by a phrase or so.
 
@@ -170,7 +178,11 @@ shows the calendar's name and how many meetings it found. Press **Connect**. The
 
 The address stays in Hush's settings folder on your computer. Hush reads it straight from
 Google; there is no Hush server and no Google sign-in. Anyone with the address can read
-your calendar, so Google lets you reset it any time, and **Disconnect** makes Hush forget it.
+your calendar, so Google lets you reset it any time, and **Remove** makes Hush forget it.
+
+Have a work and a personal calendar? Press **+ Add a calendar** to follow up to 12. Each
+gets a colour, its own switch and its own status. A meeting that is in two calendars shows
+once, with one pop-up.
 
 ## How it works
 

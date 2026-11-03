@@ -180,7 +180,8 @@ impl Studio {
     }
 
     /// Record from the chosen microphone until `stop_recording`, then enhance the recording.
-    pub fn record(&self, app: &AppHandle) -> Result<()> {
+    /// `input` is a microphone name; `None` follows the system default.
+    pub fn record(&self, app: &AppHandle, input: Option<String>) -> Result<()> {
         self.cancel_job();
         let job = self.next.fetch_add(1, Ordering::Relaxed) + 1;
         self.current.store(job, Ordering::Relaxed);
@@ -190,7 +191,6 @@ impl Studio {
         }
         let dir = folder(app)?;
         let path = dir.join(format!("recording-{job}.wav"));
-        let input = app.state::<crate::AppState>().settings().input;
         // cpal streams cannot move between threads: the recorder thread opens the microphone
         // and reports back whether it started.
         let (ready, started) = std::sync::mpsc::channel::<Result<()>>();

@@ -9,10 +9,10 @@ import { useLoop } from "../lib/hooks";
 const SETUP = [
   { title: "Bring your own Gemini API key", body: "Hush opens Google AI Studio's key page, notices the key you copy, checks it with Google and keeps it in Hush's settings folder. Google has a free tier." },
   { title: "Pick the languages", body: "“I speak” and “They hear”, from more than 70 languages, with a swap button." },
-  { title: "Turn it on in your call", body: "Your noise-cancelled voice goes to Gemini, and the translated voice comes out of Hush AI Microphone. Nothing changes in Zoom, Meet or Teams." },
+  { title: "Turn it on in your call", body: "Hush asks once, then your voice goes to Gemini, cleaned or as it is, and the translation comes out of Hush AI Microphone. Nothing changes in Zoom, Meet or Teams." },
 ];
 
-const SWITCHES = ["A toggle in the app", "A row in the tray or menu-bar widget, with a swap", "“Translate my voice” in the tray menu"];
+const SWITCHES = ["A toggle in the app, with a history of every phrase in both languages", "A row in the tray or menu-bar widget, with a swap", "“Translate my voice” in the tray menu"];
 
 function Bars({ className, n = 18 }: { className: string; n?: number }) {
   return (

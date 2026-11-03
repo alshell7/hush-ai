@@ -1,5 +1,6 @@
 // Settings, as a panel that slides over the main screen.
 import { AnimatePresence, motion } from "motion/react";
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { DevicePicker, Segmented, Spinner, Tip, Toggle } from "../components/Controls";
 import { CloseIcon, ExternalIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
@@ -22,7 +23,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     return () => window.removeEventListener("keydown", key);
   }, [open, onClose]);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-30" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -47,7 +48,8 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
           </motion.aside>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
@@ -256,6 +258,7 @@ function SettingsBody() {
 
 function TranslateSettings() {
   const info = useFeatures((s) => s.translate);
+  const settings = useApp((s) => s.settings);
   if (!info) return null;
   return (
     <Section title="Live Translate">
@@ -271,6 +274,12 @@ function TranslateSettings() {
             Remove
           </button>
         )}
+      </Row>
+      <Row title="Ask before starting" detail="A reminder that your voice goes to Google.">
+        <Toggle label="Ask before starting" on={settings?.translateAsk ?? true} onChange={(translateAsk) => saveSettings({ translateAsk })} />
+      </Row>
+      <Row title="Keep a history" detail="What you said and what they heard, on this computer only.">
+        <Toggle label="Keep a history" on={settings?.translateHistory ?? true} onChange={(translateHistory) => saveSettings({ translateHistory })} />
       </Row>
       <Row title="Shortcut" detail="Turns Live Translate on and off, in any app.">
         <kbd className="chip font-sans">{TRANSLATE_SHORTCUT}</kbd>

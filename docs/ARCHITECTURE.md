@@ -97,6 +97,15 @@ the 24 kHz answer and resamples it to the device rate. It keeps a session-resump
 so it continues on a new connection when Google rotates the old one (about every 10
 minutes), and reconnects with a new setup when the target language changes.
 
+Live Translate does not need noise cancellation. When it is on and noise cancellation is
+off, the engine runs a pass-through session (`bypass`): the worker copies the microphone to
+the output unchanged, so the tap and Hush AI Microphone work as usual, and the tray shows
+noise cancellation as off. The session stops when both are off.
+
+The translator joins the captions of one phrase (until a 2.5-second pause) into a history
+entry with both languages and writes the last 1,000 to `translate-history.json` in the app
+data folder, unless the user turned the history off.
+
 ## App
 
 ```mermaid
@@ -138,9 +147,12 @@ flowchart TB
   in a streaming pipeline, runs the chosen model off the audio path, and writes the original
   and the result as WAV files into the app's cache folder for playback. Memory stays flat
   for long files.
-- **Calendar** reads the iCal address every few minutes, expands repeating events (with
-  `rrule`), moved and cancelled occurrences, and finds call links. A 10-second tick turns
-  noise cancellation on before a call and pops up the widget.
+- **Calendar** reads each iCal address (up to 12) every few minutes, expands repeating
+  events (with `rrule`), moved and cancelled occurrences, and finds call links. It merges the
+  calendars into one list: a meeting with the same event id, or the same title and times, is
+  one meeting that remembers every calendar it came from. One calendar failing does not stop
+  the others. A 10-second tick turns noise cancellation on before a call and pops up the
+  widget, once per meeting.
 - **Updates** come from GitHub Releases. Each update is signed; the app checks the
   signature before it installs.
 - **Single instance.** A second start shows the running window.

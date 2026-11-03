@@ -86,8 +86,10 @@ it stays high, choose Efficient, or Light with RE-USE.
 
 Open the **Studio** tab.
 
-1. Drop a file on the window, press **Choose a file**, or press **Record yourself** (up to
-   30 minutes, from the microphone chosen on the Live tab).
+1. Drop a file on the window, press **Choose a file**, or press **Record yourself**. Pick
+   the microphone to record (the bar shows its level) and press **Start recording** (up to
+   30 minutes). Hush records the microphone as it is and cleans the recording afterwards;
+   your calls and Hush AI Microphone are not affected.
 2. Hush cleans it with your voice model. Long files are fine; the progress ring shows the
    time left.
 3. Press play and switch between **Original** and **With Hush** while it plays (the **A**
@@ -117,7 +119,22 @@ You can also paste the address into the field. Any calendar that publishes an iC
 | Turn it off after the call | Only if Hush turned it on, and you did not turn it off yourself |
 | Pop up with a Join button | The tray widget opens a minute before the call |
 
-**Join** opens the meeting's own link. **Disconnect** makes Hush forget the address. The
+### More than one calendar
+
+Press **+ Add a calendar** on the Meetings tab and connect another secret address, up to 12.
+The **Calendars** card lists each with its colour, the meetings it has, and whether it is
+syncing or needs attention.
+
+- **The switch** pauses a calendar without forgetting it.
+- **✕, then Remove** forgets it.
+- **Coloured dots** on a meeting show which calendars it comes from.
+- **The same meeting in two calendars** (an invite on your work and personal calendar) shows
+  once, and Hush pops up once.
+
+If one calendar fails (its address was reset), the others keep working, and its row says
+what to do.
+
+**Join** opens the meeting's own link. **Remove** makes Hush forget an address. The
 address is a secret link to your calendar: Hush keeps it only in its settings folder and
 never writes it to logs. If it leaks, reset it in Google Calendar and connect again.
 
@@ -126,20 +143,36 @@ never writes it to logs. If it leaks, reset it in Google Calendar and connect ag
 Speak your language and the call hears you in theirs, in a natural voice, through Hush AI
 Microphone. Hush uses Google's **Gemini 3.5 Live Translate** model with your own API key.
 
-1. On the Live tab, press **Add your Gemini API key**. Hush opens Google AI Studio.
+1. On the **Translate** tab, press **Add your Gemini API key**. Hush opens Google AI Studio.
 2. Press **Create API key** and copy it. Back in Hush, it is noticed, checked with Google and
    kept in Hush's settings folder.
 3. Choose **I speak** and **They hear** (70+ languages). ⇄ swaps them.
-4. Turn on **Live Translate**. Captions show what you said and what they hear.
+4. Turn on **Live Translate**. Hush asks **Start translating now?** first, because your voice
+   goes to Google. Tick **Don't ask again** to skip it, or turn it back on in Settings.
+5. Captions show what you said and what they hear.
 
 During a call, use the switch in the tray widget, **Translate my voice** in the tray menu,
-or **Ctrl + Alt + T** (**⌘ ⌥ T** on macOS) in any app. Translation turns noise cancellation
-on too, and stops when you turn noise cancellation off.
+or **Ctrl + Alt + T** (**⌘ ⌥ T** on macOS) in any app.
+
+**With or without noise cancellation.** Live Translate does not need noise cancellation. With
+it on, Google gets your cleaned voice. With it off, Hush runs a quiet pass-through session:
+your voice goes to Google as it is, and the call still hears the translation through Hush AI
+Microphone. Turning noise cancellation on or off does not stop the translation.
+
+### History
+
+The **History** on the Translate tab keeps what you said and what they heard, phrase by
+phrase, grouped by day, with the two languages side by side.
+
+- **Search** finds words in either language. **Copy** copies a translation.
+- **Clear** deletes the history, after you confirm.
+- It stays on this computer (`translate-history.json` in Hush's data folder), up to the last
+  1,000 phrases. Turn off **Keep a history** in Settings and Hush stops saving new phrases.
 
 Good to know:
 
-- **It uses the internet.** While Live Translate is on, your noise-cancelled voice goes to
-  Google; everything else in Hush stays on your computer.
+- **It uses the internet.** While Live Translate is on, your voice goes to Google;
+  everything else in Hush stays on your computer.
 - **It follows you by a phrase or so.** Gemini translates phrase by phrase, so the other side
   hears you a moment after you speak.
 - **Cost:** Google offers a free tier; paid use is billed by Google to your key. Google's
@@ -160,7 +193,8 @@ Good to know:
 | Studio: "Hush cannot read this file" | Convert it to WAV or MP3. Opus files (for example WhatsApp voice notes) are not supported yet. |
 | Meetings: "The calendar did not accept this address" | The secret address was reset. Copy it again from Google Calendar. |
 | Live Translate: "Google did not accept this API key" | Create a new key in Google AI Studio and add it again. |
-| Live Translate is on but they hear silence | Check that Hush is **On**, speak a full sentence and wait a moment. Gemini answers phrase by phrase. |
+| Live Translate is on but they hear silence | Check that the call app uses **Hush AI Microphone**, speak a full sentence and wait a moment. Gemini answers phrase by phrase. |
+| Meetings: one calendar in the list shows an error | Its secret address was reset. Remove it and add the new address; the other calendars keep working. |
 | Ctrl + Alt + T does nothing | Another app uses the same shortcut. Use the switch in the widget instead. |
 
 ## Uninstall

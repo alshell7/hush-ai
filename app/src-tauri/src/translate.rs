@@ -32,6 +32,10 @@ const RECEIVE_RATE: u32 = 24_000;
 const CHUNK: usize = SEND_RATE as usize / 10;
 /// Captions keep the last few sentences.
 const CAPTION_CHARS: usize = 220;
+/// A pause this long ends a history entry.
+const ENTRY_PAUSE: Duration = Duration::from_millis(2500);
+/// History keeps this many entries.
+const HISTORY: usize = 1000;
 
 /// Languages Gemini Live Translate speaks (BCP-47).
 pub const LANGUAGES: &[&str] = &[
@@ -68,6 +72,18 @@ pub struct TranslateInfo {
     pub detected: Option<String>,
 }
 
+/// One translated phrase: what you said and what the other side heard.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Entry {
+    /// Unix time in milliseconds when it started; also its id.
+    pub at: i64,
+    pub from: String,
+    pub to: String,
+    pub heard: String,
+    pub said: String,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Stored {
     key: Option<String>,
@@ -82,6 +98,11 @@ struct Inner {
     said: String,
     detected: Option<String>,
     last_emit: Instant,
+    /// The phrase being translated now, and when text last arrived for it.
+    current: Option<Entry>,
+    last_text: Instant,
+    /// Kept on this computer only; `None` until first read.
+    history: Option<Vec<Entry>>,
 }
 
 /// The app-wide translation state. The live session reads `on` and the languages from it.
@@ -89,6 +110,8 @@ pub struct Translator {
     inner: Mutex<Inner>,
     /// Where the API key is kept.
     path: PathBuf,
+    /// Where the history is kept.
+    history_path: PathBuf,
     /// Shared with the live session's audio tap.
     pub active: Arc<AtomicBool>,
 }
@@ -114,7 +137,15 @@ impl Translator {
                 said: String::new(),
                 detected: None,
                 last_emit: Instant::now(),
+                current: None,
+                last_text: Instant::now(),
+                history: None,
             }),
+            history_path: app
+                .path()
+                .app_data_dir()
+                .unwrap_or_default()
+                .join("translate-history.json"),
             path,
             active: Arc::new(AtomicBool::new(false)),
         }
@@ -194,6 +225,13 @@ impl Translator {
             }
             inner.on = on;
             inner.status = if on { Status::Connecting } else { Status::Off };
+            if !on {
+                if let Some(entry) = inner.current.take() {
+                    drop(inner);
+                    self.keep(app, entry);
+                    inner = self.inner.lock().unwrap();
+                }
+            }
             inner.message = None;
             if on {
                 inner.heard.clear();
@@ -249,6 +287,26 @@ impl Translator {
             if language.is_some() {
                 inner.detected = language;
             }
+            // The same text, phrase by phrase, for the history.
+            if inner.current.is_none() {
+                let settings = app.state::<crate::AppState>().settings();
+                inner.current = Some(Entry {
+                    at: chrono::Utc::now().timestamp_millis(),
+                    from: inner.detected.clone().unwrap_or(settings.translate_from),
+                    to: settings.translate_to,
+                    heard: String::new(),
+                    said: String::new(),
+                });
+            }
+            let detected = inner.detected.clone();
+            if let Some(entry) = inner.current.as_mut() {
+                entry.heard.push_str(heard.unwrap_or(""));
+                entry.said.push_str(said.unwrap_or(""));
+                if let Some(language) = detected {
+                    entry.from = language;
+                }
+            }
+            inner.last_text = Instant::now();
             let due = inner.last_emit.elapsed() >= Duration::from_millis(125);
             if due {
                 inner.last_emit = Instant::now();
@@ -258,6 +316,75 @@ impl Translator {
         if send {
             let _ = app.emit("translate", self.info());
         }
+    }
+
+    /// Ends the current phrase after a pause. Called often by the translator thread.
+    fn tick(&self, app: &AppHandle) {
+        let ended = {
+            let mut inner = self.inner.lock().unwrap();
+            if inner.current.is_some() && inner.last_text.elapsed() >= ENTRY_PAUSE {
+                inner.current.take()
+            } else {
+                None
+            }
+        };
+        if let Some(entry) = ended {
+            self.keep(app, entry);
+        }
+    }
+
+    /// Add a finished phrase to the history, if the user keeps one.
+    fn keep(&self, app: &AppHandle, mut entry: Entry) {
+        entry.heard = entry.heard.trim().to_string();
+        entry.said = entry.said.trim().to_string();
+        if entry.heard.is_empty() && entry.said.is_empty() {
+            return;
+        }
+        if !app.state::<crate::AppState>().settings().translate_history {
+            return;
+        }
+        let snapshot = {
+            let mut inner = self.inner.lock().unwrap();
+            let history = self.loaded(&mut inner);
+            history.push(entry.clone());
+            let extra = history.len().saturating_sub(HISTORY);
+            history.drain(..extra);
+            history.clone()
+        };
+        if let Err(error) = self.save(&snapshot) {
+            log::warn!("Translate history: {error:#}");
+        }
+        let _ = app.emit("translate-entry", entry);
+    }
+
+    fn loaded<'a>(&self, inner: &'a mut Inner) -> &'a mut Vec<Entry> {
+        inner.history.get_or_insert_with(|| {
+            std::fs::read(&self.history_path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                .unwrap_or_default()
+        })
+    }
+
+    fn save(&self, history: &[Entry]) -> Result<()> {
+        if let Some(dir) = self.history_path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let temporary = self.history_path.with_extension("json.tmp");
+        std::fs::write(&temporary, serde_json::to_vec(history)?)?;
+        std::fs::rename(&temporary, &self.history_path)?;
+        Ok(())
+    }
+
+    /// Every kept phrase, oldest first.
+    pub fn history(&self) -> Vec<Entry> {
+        let mut inner = self.inner.lock().unwrap();
+        self.loaded(&mut inner).clone()
+    }
+
+    pub fn clear_history(&self) {
+        self.inner.lock().unwrap().history = Some(Vec::new());
+        let _ = std::fs::remove_file(&self.history_path);
     }
 }
 
@@ -639,6 +766,7 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
             session = None;
             retry_at = Instant::now();
         }
+        translator.tick(&app);
         thread::sleep(Duration::from_millis(10));
     }
 }

@@ -1,16 +1,18 @@
-//! Meetings from a calendar's secret iCal address (Google Calendar: Settings › your calendar ›
-//! Integrate calendar › Secret address in iCal format). No sign-in: Hush reads the address
-//! directly from the calendar service on a schedule the user picks. The address is stored
+//! Meetings from calendars' secret iCal addresses (Google Calendar: Settings › your calendar ›
+//! Integrate calendar › Secret address in iCal format). No sign-in: Hush reads each address
+//! directly from the calendar service on a schedule the user picks. The addresses are stored
 //! only on this computer and never logged.
 //!
-//! Hush shows the next meetings with a Join button. Before a meeting with a call link it can
-//! pop up the tray widget, turn noise cancellation on, and turn it off again afterwards if
-//! Hush turned it on.
+//! Several calendars can be connected. Their meetings are merged, and a meeting that appears
+//! in more than one (an invitation in a work and a personal calendar) shows once. Before a
+//! meeting with a call link Hush can pop up the tray widget, turn noise cancellation on, and
+//! turn it off again afterwards if Hush turned it on.
 use chrono::{DateTime, Duration as Span, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, Condvar, Mutex},
     thread,
@@ -27,6 +29,8 @@ const PAST: i64 = 12 * 3600;
 const AHEAD: i64 = 8 * 24 * 3600;
 /// Largest calendar file read.
 const MAX_BYTES: u64 = 32 * 1024 * 1024;
+/// Most calendars Hush follows at once.
+const MAX_CALENDARS: usize = 12;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,22 +52,43 @@ pub struct Meeting {
     pub all_day: bool,
     /// "meet", "zoom", "teams", "webex", "slack", "discord" or "other" when there is a call link.
     pub app: Option<&'static str>,
+    /// The calendars it is in (their ids).
+    pub calendars: Vec<String>,
     #[serde(skip)]
     link: Option<String>,
+}
+
+/// One connected calendar, as the windows show it.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarView {
+    pub id: String,
+    /// The calendar's own name, when it has one.
+    pub name: Option<String>,
+    /// "Google Calendar" or the address's host.
+    pub source: String,
+    pub enabled: bool,
+    pub status: Status,
+    pub error: Option<String>,
+    /// Unix time in milliseconds of the last successful read.
+    pub updated: Option<i64>,
+    /// A stable colour slot, 0 to 5.
+    pub color: usize,
+    /// Upcoming meetings from this calendar.
+    pub meetings: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarInfo {
     pub connected: bool,
+    /// Loading while any calendar reads, Error when every enabled one failed.
     pub status: Status,
     pub error: Option<String>,
-    /// Unix time in milliseconds of the last successful read.
     pub updated: Option<i64>,
-    /// "Google Calendar" or the address's host.
     pub source: Option<String>,
-    /// The calendar's own name, when it has one.
     pub name: Option<String>,
+    pub calendars: Vec<CalendarView>,
     pub meetings: Vec<Meeting>,
 }
 
@@ -77,6 +102,8 @@ pub struct Preview {
     pub meetings: usize,
     pub calls: usize,
     pub next: Option<Meeting>,
+    /// This address is connected already.
+    pub connected: bool,
 }
 
 /// Sent to the windows shortly before a meeting with a call link.
@@ -88,20 +115,46 @@ pub struct Soon {
     pub turned_on: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Source {
+    id: String,
+    url: String,
+    #[serde(default = "yes")]
+    enabled: bool,
+    #[serde(default)]
+    color: usize,
+}
+
+fn yes() -> bool {
+    true
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct Stored {
+    #[serde(default)]
+    calendars: Vec<Source>,
+    /// One calendar, as early 1.1 builds stored it.
+    #[serde(default, skip_serializing)]
     url: Option<String>,
 }
 
+/// The last read of one calendar.
 #[derive(Default)]
-struct Inner {
-    url: Option<String>,
+struct Feed {
     name: Option<String>,
     status: Option<Status>,
     error: Option<String>,
     updated: Option<i64>,
     meetings: Vec<Meeting>,
     fetched: Option<Instant>,
+}
+
+#[derive(Default)]
+struct Inner {
+    sources: Vec<Source>,
+    feeds: HashMap<String, Feed>,
+    /// Meetings of the enabled calendars, merged and sorted.
+    merged: Vec<Meeting>,
     refresh: bool,
     /// Meetings whose start was already handled, so Hush acts once per meeting.
     handled: HashSet<String>,
@@ -117,6 +170,59 @@ pub struct Calendar {
     path: PathBuf,
 }
 
+fn source_id(url: &str) -> String {
+    Sha256::digest(url.as_bytes())
+        .iter()
+        .take(6)
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Meetings of the enabled calendars as one list: the same meeting in two calendars (same
+/// event, or the same title and time) becomes one entry that lists both.
+fn merge(sources: &[Source], feeds: &HashMap<String, Feed>) -> Vec<Meeting> {
+    let mut merged: Vec<Meeting> = Vec::new();
+    let mut by_key: HashMap<String, usize> = HashMap::new();
+    for source in sources.iter().filter(|s| s.enabled) {
+        let Some(feed) = feeds.get(&source.id) else {
+            continue;
+        };
+        for meeting in &feed.meetings {
+            let same_time = format!(
+                "{}|{}|{}",
+                meeting.title.to_lowercase(),
+                meeting.start,
+                meeting.end
+            );
+            let found = by_key
+                .get(&meeting.id)
+                .or_else(|| by_key.get(&same_time))
+                .copied();
+            match found {
+                Some(index) => {
+                    let existing = &mut merged[index];
+                    if !existing.calendars.contains(&source.id) {
+                        existing.calendars.push(source.id.clone());
+                    }
+                    if existing.link.is_none() && meeting.link.is_some() {
+                        existing.link = meeting.link.clone();
+                        existing.app = meeting.app;
+                    }
+                }
+                None => {
+                    let mut meeting = meeting.clone();
+                    meeting.calendars = vec![source.id.clone()];
+                    by_key.insert(meeting.id.clone(), merged.len());
+                    by_key.insert(same_time, merged.len());
+                    merged.push(meeting);
+                }
+            }
+        }
+    }
+    merged.sort_by_key(|m| (m.start, m.all_day));
+    merged
+}
+
 impl Calendar {
     pub fn new(app: &AppHandle) -> Arc<Self> {
         let path = app
@@ -124,13 +230,23 @@ impl Calendar {
             .app_config_dir()
             .unwrap_or_default()
             .join("calendar.json");
-        let stored: Stored = std::fs::read(&path)
+        let mut stored: Stored = std::fs::read(&path)
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
+        if let Some(url) = stored.url.take() {
+            if !stored.calendars.iter().any(|s| s.url == url) {
+                stored.calendars.push(Source {
+                    id: source_id(&url),
+                    url,
+                    enabled: true,
+                    color: 0,
+                });
+            }
+        }
         let calendar = Arc::new(Self {
             inner: Mutex::new(Inner {
-                url: stored.url,
+                sources: stored.calendars,
                 refresh: true,
                 ..Default::default()
             }),
@@ -146,27 +262,71 @@ impl Calendar {
         calendar
     }
 
+    fn store(&self, inner: &Inner) -> Result<()> {
+        std::fs::create_dir_all(self.path.parent().unwrap_or(&self.path))?;
+        let temporary = self.path.with_extension("json.tmp");
+        std::fs::write(
+            &temporary,
+            serde_json::to_vec(&Stored {
+                calendars: inner.sources.clone(),
+                url: None,
+            })?,
+        )?;
+        std::fs::rename(&temporary, &self.path)?;
+        Ok(())
+    }
+
     pub fn info(&self) -> CalendarInfo {
         let inner = self.inner.lock().unwrap();
         let now = Utc::now().timestamp_millis();
+        let calendars: Vec<CalendarView> = inner
+            .sources
+            .iter()
+            .map(|source| {
+                let feed = inner.feeds.get(&source.id);
+                CalendarView {
+                    id: source.id.clone(),
+                    name: feed.and_then(|f| f.name.clone()),
+                    source: source_name(&source.url),
+                    enabled: source.enabled,
+                    status: if !source.enabled {
+                        Status::Off
+                    } else {
+                        feed.and_then(|f| f.status.clone())
+                            .unwrap_or(Status::Loading)
+                    },
+                    error: feed.and_then(|f| f.error.clone()),
+                    updated: feed.and_then(|f| f.updated),
+                    color: source.color,
+                    meetings: feed.map_or(0, |f| f.meetings.iter().filter(|m| m.end > now).count()),
+                }
+            })
+            .collect();
+        let enabled: Vec<&CalendarView> = calendars.iter().filter(|c| c.enabled).collect();
+        let status = if calendars.is_empty() {
+            Status::Off
+        } else if enabled.iter().any(|c| c.status == Status::Loading) {
+            Status::Loading
+        } else if !enabled.is_empty() && enabled.iter().all(|c| c.status == Status::Error) {
+            Status::Error
+        } else {
+            Status::Ready
+        };
         CalendarInfo {
-            connected: inner.url.is_some(),
-            status: if inner.url.is_none() {
-                Status::Off
-            } else {
-                inner.status.clone().unwrap_or(Status::Loading)
-            },
-            error: inner.error.clone(),
-            updated: inner.updated,
-            source: inner.url.as_deref().map(source_name),
-            name: inner.name.clone(),
+            connected: !calendars.is_empty(),
+            status,
+            error: enabled.iter().find_map(|c| c.error.clone()),
+            updated: enabled.iter().filter_map(|c| c.updated).min(),
+            source: calendars.first().map(|c| c.source.clone()),
+            name: calendars.first().and_then(|c| c.name.clone()),
             meetings: inner
-                .meetings
+                .merged
                 .iter()
                 .filter(|m| m.end > now)
-                .take(40)
+                .take(60)
                 .cloned()
                 .collect(),
+            calendars,
         }
     }
 
@@ -175,8 +335,15 @@ impl Calendar {
     }
 
     /// Read an address without keeping it, to show what it holds.
-    pub fn check(address: &str) -> Result<Preview> {
+    pub fn check(&self, address: &str) -> Result<Preview> {
         let url = normalize(address)?;
+        let connected = self
+            .inner
+            .lock()
+            .unwrap()
+            .sources
+            .iter()
+            .any(|s| s.url == url);
         let (name, events) =
             fetch(&url).map_err(|e| eyre!(e.to_string().replace(&url, "the address")))?;
         let now = Utc::now();
@@ -193,53 +360,114 @@ impl Calendar {
             next: upcoming
                 .into_iter()
                 .find(|m| m.start > now.timestamp_millis()),
+            connected,
         })
     }
 
-    /// Check and save a new address. The calendar is read once before it is kept.
+    /// Check and add a calendar. It is read once before it is kept.
     pub fn connect(&self, app: &AppHandle, address: &str) -> Result<CalendarInfo> {
         let url = normalize(address)?;
         let (name, events) =
             fetch(&url).map_err(|e| eyre!(e.to_string().replace(&url, "the address")))?;
         let meetings = expand(&events, Utc::now());
-        std::fs::create_dir_all(self.path.parent().unwrap_or(&self.path))?;
-        let temporary = self.path.with_extension("json.tmp");
-        std::fs::write(
-            &temporary,
-            serde_json::to_vec(&Stored {
-                url: Some(url.clone()),
-            })?,
-        )?;
-        std::fs::rename(&temporary, &self.path)?;
         {
             let mut inner = self.inner.lock().unwrap();
-            inner.url = Some(url);
-            inner.name = name;
-            inner.meetings = meetings;
-            inner.status = Some(Status::Ready);
-            inner.error = None;
-            inner.updated = Some(Utc::now().timestamp_millis());
-            inner.fetched = Some(Instant::now());
-            // Just read: the next read waits for the sync interval.
-            inner.refresh = false;
+            let id = source_id(&url);
+            if let Some(existing) = inner.sources.iter_mut().find(|s| s.id == id) {
+                existing.enabled = true;
+            } else {
+                if inner.sources.len() >= MAX_CALENDARS {
+                    return Err(eyre!(
+                        "Hush follows up to {MAX_CALENDARS} calendars. Remove one first."
+                    ));
+                }
+                // The first free colour, so calendars stay apart.
+                let used: HashSet<usize> = inner.sources.iter().map(|s| s.color).collect();
+                let color = (0..6)
+                    .find(|c| !used.contains(c))
+                    .unwrap_or(inner.sources.len() % 6);
+                inner.sources.push(Source {
+                    id: id.clone(),
+                    url,
+                    enabled: true,
+                    color,
+                });
+            }
+            inner.feeds.insert(
+                id,
+                Feed {
+                    name,
+                    status: Some(Status::Ready),
+                    error: None,
+                    updated: Some(Utc::now().timestamp_millis()),
+                    meetings,
+                    fetched: Some(Instant::now()),
+                },
+            );
+            inner.merged = merge(&inner.sources, &inner.feeds);
+            self.store(&inner)?;
         }
         self.publish(app);
         Ok(self.info())
     }
 
-    pub fn disconnect(&self, app: &AppHandle) -> CalendarInfo {
-        let _ = std::fs::remove_file(&self.path);
+    /// Forget one calendar, or all of them.
+    pub fn disconnect(&self, app: &AppHandle, id: Option<&str>) -> CalendarInfo {
         {
             let mut inner = self.inner.lock().unwrap();
-            *inner = Inner::default();
+            match id {
+                Some(id) => {
+                    inner.sources.retain(|s| s.id != id);
+                    inner.feeds.remove(id);
+                }
+                None => {
+                    inner.sources.clear();
+                    inner.feeds.clear();
+                }
+            }
+            inner.merged = merge(&inner.sources, &inner.feeds);
+            if inner.sources.is_empty() {
+                inner.started = None;
+                let _ = std::fs::remove_file(&self.path);
+            } else if let Err(error) = self.store(&inner) {
+                log::warn!("Calendar: {error:#}");
+            }
         }
         self.publish(app);
         self.info()
     }
 
-    /// Read the calendar again now.
+    /// Follow or pause one calendar without forgetting it.
+    pub fn set_enabled(&self, app: &AppHandle, id: &str, enabled: bool) -> CalendarInfo {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            if let Some(source) = inner.sources.iter_mut().find(|s| s.id == id) {
+                source.enabled = enabled;
+            }
+            if enabled {
+                if let Some(feed) = inner.feeds.get_mut(id) {
+                    feed.fetched = None;
+                }
+                inner.refresh = true;
+            }
+            inner.merged = merge(&inner.sources, &inner.feeds);
+            if let Err(error) = self.store(&inner) {
+                log::warn!("Calendar: {error:#}");
+            }
+        }
+        self.wake.notify_all();
+        self.publish(app);
+        self.info()
+    }
+
+    /// Read every calendar again now.
     pub fn refresh(&self) {
-        self.inner.lock().unwrap().refresh = true;
+        let mut inner = self.inner.lock().unwrap();
+        inner.refresh = true;
+        for feed in inner.feeds.values_mut() {
+            feed.fetched = None;
+        }
+        drop(inner);
         self.wake.notify_all();
     }
 
@@ -247,7 +475,7 @@ impl Calendar {
     pub fn link(&self, id: &str) -> Option<String> {
         let inner = self.inner.lock().unwrap();
         inner
-            .meetings
+            .merged
             .iter()
             .find(|m| m.id == id)
             .and_then(|m| m.link.clone())
@@ -263,47 +491,64 @@ impl Calendar {
                         .clamp(1, 240),
                 ) * 60,
             );
-            let due = {
+            // Calendars due for a read: never read, asked for, or older than the interval.
+            let due: Vec<(String, String)> = {
                 let inner = self.inner.lock().unwrap();
-                let inner = self
+                let mut inner = self
                     .wake
                     .wait_timeout_while(inner, TICK, |i| !i.refresh)
                     .unwrap()
                     .0;
-                inner.url.clone().filter(|_| {
-                    inner.refresh || inner.fetched.is_none_or(|at| at.elapsed() >= every)
-                })
-            };
-            if let Some(url) = due {
-                {
-                    let mut inner = self.inner.lock().unwrap();
-                    inner.refresh = false;
-                    inner.status = Some(Status::Loading);
+                inner.refresh = false;
+                let due: Vec<(String, String)> = inner
+                    .sources
+                    .iter()
+                    .filter(|s| s.enabled)
+                    .filter(|s| {
+                        inner
+                            .feeds
+                            .get(&s.id)
+                            .and_then(|f| f.fetched)
+                            .is_none_or(|at| at.elapsed() >= every)
+                    })
+                    .map(|s| (s.id.clone(), s.url.clone()))
+                    .collect();
+                for (id, _) in &due {
+                    inner.feeds.entry(id.clone()).or_default().status = Some(Status::Loading);
                 }
+                due
+            };
+            if !due.is_empty() {
                 self.publish(app);
+            }
+            for (id, url) in due {
                 let result = fetch(&url).map(|(name, events)| (name, expand(&events, Utc::now())));
                 let mut inner = self.inner.lock().unwrap();
-                // Disconnected or replaced while reading: drop the result.
-                if inner.url.as_deref() == Some(&url) {
-                    inner.fetched = Some(Instant::now());
-                    match result {
-                        Ok((name, meetings)) => {
-                            inner.name = name;
-                            inner.meetings = meetings;
-                            inner.status = Some(Status::Ready);
-                            inner.error = None;
-                            inner.updated = Some(Utc::now().timestamp_millis());
-                        }
-                        Err(error) => {
-                            let text = error.to_string().replace(&url, "the address");
-                            log::warn!("Calendar: {text}");
-                            inner.status = Some(Status::Error);
-                            inner.error = Some(text);
-                        }
-                    }
-                    drop(inner);
-                    self.publish(app);
+                // Removed while reading: drop the result.
+                if !inner.sources.iter().any(|s| s.id == id) {
+                    inner.feeds.remove(&id);
+                    continue;
                 }
+                let feed = inner.feeds.entry(id.clone()).or_default();
+                feed.fetched = Some(Instant::now());
+                match result {
+                    Ok((name, meetings)) => {
+                        feed.name = name;
+                        feed.meetings = meetings;
+                        feed.status = Some(Status::Ready);
+                        feed.error = None;
+                        feed.updated = Some(Utc::now().timestamp_millis());
+                    }
+                    Err(error) => {
+                        let text = error.to_string().replace(&url, "the address");
+                        log::warn!("Calendar: {text}");
+                        feed.status = Some(Status::Error);
+                        feed.error = Some(text);
+                    }
+                }
+                inner.merged = merge(&inner.sources, &inner.feeds);
+                drop(inner);
+                self.publish(app);
             }
             self.automatic(app);
         }
@@ -319,7 +564,7 @@ impl Calendar {
         let mut announce = None;
         {
             let mut inner = self.inner.lock().unwrap();
-            if inner.url.is_none() || !settings.onboarded {
+            if inner.sources.is_empty() || !settings.onboarded {
                 inner.started = None;
                 return;
             }
@@ -329,7 +574,7 @@ impl Calendar {
             }
             let calls = || {
                 inner
-                    .meetings
+                    .merged
                     .iter()
                     .filter(|m| m.link.is_some() && !m.all_day && now < m.end)
             };
@@ -823,6 +1068,7 @@ fn expand(events: &[Event], now: DateTime<Utc>) -> Vec<Meeting> {
                 end: end.timestamp_millis(),
                 all_day,
                 app: event.link.as_deref().and_then(call_app),
+                calendars: Vec::new(),
                 link: event.link.clone(),
             });
         }
@@ -986,6 +1232,98 @@ END:VCALENDAR\r
 
     /// `HUSH_TEST_ICAL=<secret address> cargo test -p hush-ai real_calendar -- --ignored --nocapture`
     /// reads a real calendar and prints counts only.
+    fn check_address(address: &str) -> Preview {
+        let url = normalize(address).unwrap();
+        let (name, events) = fetch(&url).unwrap();
+        let now = Utc::now();
+        let week = (now + Span::days(7)).timestamp_millis();
+        let upcoming: Vec<Meeting> = expand(&events, now)
+            .into_iter()
+            .filter(|m| !m.all_day && m.end > now.timestamp_millis() && m.start < week)
+            .collect();
+        Preview {
+            source: source_name(&url),
+            name,
+            meetings: upcoming.len(),
+            calls: upcoming.iter().filter(|m| m.link.is_some()).count(),
+            next: upcoming
+                .into_iter()
+                .find(|m| m.start > now.timestamp_millis()),
+            connected: false,
+        }
+    }
+
+    #[test]
+    fn merges_the_same_meeting_from_two_calendars() {
+        let meeting = |id: &str, title: &str, start: i64| Meeting {
+            id: id.into(),
+            title: title.into(),
+            start,
+            end: start + 1_800_000,
+            all_day: false,
+            app: None,
+            calendars: Vec::new(),
+            link: None,
+        };
+        let sources = vec![
+            Source {
+                id: "work".into(),
+                url: "a".into(),
+                enabled: true,
+                color: 0,
+            },
+            Source {
+                id: "home".into(),
+                url: "b".into(),
+                enabled: true,
+                color: 1,
+            },
+            Source {
+                id: "off".into(),
+                url: "c".into(),
+                enabled: false,
+                color: 2,
+            },
+        ];
+        let mut feeds = HashMap::new();
+        feeds.insert(
+            "work".to_string(),
+            Feed {
+                meetings: vec![
+                    meeting("x@1", "Standup", 1000),
+                    meeting("y@2", "Review", 5000),
+                ],
+                ..Default::default()
+            },
+        );
+        let mut shared = meeting("z@1", "standup", 1000);
+        shared.link = Some("https://meet.google.com/abc".into());
+        shared.app = Some("meet");
+        feeds.insert(
+            "home".to_string(),
+            Feed {
+                meetings: vec![shared, meeting("x@1", "Standup", 1000)],
+                ..Default::default()
+            },
+        );
+        feeds.insert(
+            "off".to_string(),
+            Feed {
+                meetings: vec![meeting("q@9", "Hidden", 900)],
+                ..Default::default()
+            },
+        );
+        let merged = merge(&sources, &feeds);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].title, "Standup");
+        assert_eq!(
+            merged[0].calendars,
+            vec!["work".to_string(), "home".to_string()]
+        );
+        assert_eq!(merged[0].app, Some("meet"));
+        assert!(!merged.iter().any(|m| m.title == "Hidden"));
+    }
+
     #[test]
     #[ignore]
     fn real_calendar() {
@@ -1009,7 +1347,7 @@ END:VCALENDAR\r
             meetings.iter().filter(|m| m.all_day).count(),
             started.elapsed()
         );
-        let preview = Calendar::check(&address).unwrap();
+        let preview = check_address(&address);
         println!(
             "preview: {} meetings this week, {} with calls, next in {:?} min",
             preview.meetings,

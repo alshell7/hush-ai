@@ -11,6 +11,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-set-focus",
@@ -21,12 +22,24 @@
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://github.com/alshell7/hush-ai*" },
-        { "url": "https://alshell7.github.io/hush-ai*" },
-        { "url": "https://huggingface.co/*" },
-        { "url": "https://vb-audio.com/*" },
-        { "url": "https://github.com/NVlabs/*" },
-        { "url": "https://github.com/Rikorose/DeepFilterNet*" }
+        {
+          "url": "https://github.com/alshell7/hush-ai*"
+        },
+        {
+          "url": "https://alshell7.github.io/hush-ai*"
+        },
+        {
+          "url": "https://huggingface.co/*"
+        },
+        {
+          "url": "https://vb-audio.com/*"
+        },
+        {
+          "url": "https://github.com/NVlabs/*"
+        },
+        {
+          "url": "https://github.com/Rikorose/DeepFilterNet*"
+        }
       ]
     },
     "process:allow-restart",

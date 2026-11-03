@@ -1,5 +1,6 @@
 // Add a Gemini API key for Live Translate. Like the calendar popup: open the page, copy, and
 // Hush notices the key on the clipboard when you come back, checks it with Google, keeps it.
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clipboardText, features, GEMINI_KEY_PATTERN } from "../lib/features";
@@ -9,7 +10,7 @@ import { CheckIcon, CloseIcon, CopyIcon, ExternalIcon, KeyIcon, LockIcon, Transl
 type State = { kind: "waiting" } | { kind: "checking" } | { kind: "saved" } | { kind: "error"; message: string };
 
 export function GeminiKeyConnect({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-40 grid place-items-center p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -29,7 +30,8 @@ export function GeminiKeyConnect({ open, onClose }: { open: boolean; onClose: ()
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

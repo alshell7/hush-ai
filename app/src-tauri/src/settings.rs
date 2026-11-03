@@ -68,6 +68,10 @@ pub struct Settings {
     /// Live Translate: the language you speak, and the one the other side hears (BCP-47).
     pub translate_from: String,
     pub translate_to: String,
+    /// Ask before Live Translate starts sending your voice to Google.
+    pub translate_ask: bool,
+    /// Keep a history of translations on this computer.
+    pub translate_history: bool,
 }
 
 impl Default for Settings {
@@ -91,6 +95,8 @@ impl Default for Settings {
             calendar_sync: 5,
             translate_from: "en".into(),
             translate_to: "es".into(),
+            translate_ask: true,
+            translate_history: true,
         }
     }
 }

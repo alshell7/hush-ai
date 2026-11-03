@@ -55,7 +55,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     q: "Does Live Translate leave my computer?",
     a: (
       <p>
-        Yes, and it is the only Hush feature that does. While Live Translate is on, Hush sends your noise-cancelled voice to Google's Gemini Live Translate model
+        Yes, and it is the only Hush feature that does. While Live Translate is on, Hush sends your voice (cleaned, if noise cancellation is on) to Google's Gemini Live Translate model
         and plays the translated voice into Hush AI Microphone. When it is off, nothing goes to Google. Hush itself has no server. Translation needs an internet
         connection and follows about a sentence behind you.
       </p>

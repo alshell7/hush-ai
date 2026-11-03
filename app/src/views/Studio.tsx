@@ -2,12 +2,13 @@
 // computer, then you compare before and after and save a clean WAV.
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Segmented, Spinner } from "../components/Controls";
+import { DevicePicker, Segmented, Spinner } from "../components/Controls";
 import { CheckIcon, FolderIcon, MicIcon, PauseIcon, PlayIcon, RecordIcon, SaveIcon, StopIcon, UploadIcon } from "../components/Icons";
 import { Mochi } from "../components/Mochi";
 import { toast } from "../components/Toast";
 import { features, mediaUrl, useFeatures, type StudioResult } from "../lib/features";
-import { isTauri } from "../lib/ipc";
+import { isTauri, on } from "../lib/ipc";
+import { useApp } from "../lib/store";
 
 // What Symphonia decodes: no Opus yet.
 const FORMATS = ["wav", "mp3", "m4a", "aac", "flac", "ogg", "oga", "mp4", "mov", "aif", "aiff", "caf", "mkv"];
@@ -101,18 +102,66 @@ export function Studio() {
   );
 }
 
-function Empty({ over, error }: { over: boolean; error: string | null }) {
+/** Before recording: pick the microphone and see its level. */
+function RecordPanel({ onClose }: { onClose: () => void }) {
+  const devices = useApp((s) => s.devices);
+  const live = useApp((s) => s.settings?.input ?? null);
+  const [mic, setMic] = useState<string | null>(live);
+  const [level, setLevel] = useState(0);
   const [busy, setBusy] = useState(false);
-  const record = async () => {
+
+  // The level shows while the panel is open; it reads the microphone as it is.
+  useEffect(() => {
+    features.studioMonitor(true, mic).catch(() => undefined);
+    const stop = on("mic-level", (v) => setLevel((old) => Math.max(v, old * 0.8)));
+    return () => {
+      stop.then((fn) => fn());
+      features.studioMonitor(false, null).catch(() => undefined);
+    };
+  }, [mic]);
+
+  const start = async () => {
     setBusy(true);
     try {
-      await features.studioRecord();
+      await features.studioMonitor(false, null);
+      await features.studioRecord(mic);
     } catch (e) {
       toast(String(e), "error");
-    } finally {
       setBusy(false);
     }
   };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      className="w-full max-w-[420px] rounded-[22px] bg-white p-4 text-left"
+      style={{ boxShadow: "0 0 0 1px var(--h-line), var(--h-shadow-2)" }}
+    >
+      <div className="mb-2 text-[14px] font-[650]">Record with</div>
+      <DevicePicker label="Microphone" icon={<MicIcon size={17} />} devices={devices?.inputs ?? [{ name: null, label: "System default" }]} value={mic} onChange={setMic} />
+      <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-[rgba(30,27,24,.07)]">
+        <span className="h-full rounded-full transition-[width] duration-75" style={{ width: `${Math.min(100, level * 140)}%`, background: "linear-gradient(90deg,#9fe8b8,#6fd9d1)" }} />
+      </div>
+      <p className="mt-2.5 text-[11.5px] leading-snug text-muted">
+        Hush records this microphone as it is, up to 30 minutes, then cleans the recording here. Your calls and Hush AI Microphone are not affected.
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <button className="btn btn-primary btn-sm" disabled={busy} onClick={start}>
+          {busy ? <Spinner size={13} /> : <RecordIcon size={14} className="text-red" />} Start recording
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function Empty({ over, error }: { over: boolean; error: string | null }) {
+  const [recording, setRecording] = useState(false);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -144,21 +193,27 @@ function Empty({ over, error }: { over: boolean; error: string | null }) {
             style={{ animation: over ? "h-dash 1s linear infinite" : undefined, transition: "stroke .2s" }}
           />
         </svg>
-        <motion.div animate={{ y: over ? -6 : 0, rotate: over ? -4 : 0 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
-          <Mochi size={74} mood={over ? "happy" : "awake"} />
-        </motion.div>
-        <div>
-          <div className="text-[17px] font-[640] tracking-[-0.02em]">{over ? "Let go to clean it up" : "Drop an audio or video file here"}</div>
-          <div className="mt-1 text-[12.5px] text-muted">WAV, MP3, M4A, FLAC, OGG, or the sound of an MP4 or MOV. Long files are fine.</div>
-        </div>
+        {/* While the recording panel is open it takes the illustration's place. */}
+        {!recording && (
+          <>
+            <motion.div animate={{ y: over ? -6 : 0, rotate: over ? -4 : 0 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
+              <Mochi size={74} mood={over ? "happy" : "awake"} />
+            </motion.div>
+            <div>
+              <div className="text-[17px] font-[640] tracking-[-0.02em]">{over ? "Let go to clean it up" : "Drop an audio or video file here"}</div>
+              <div className="mt-1 text-[12.5px] text-muted">WAV, MP3, M4A, FLAC, OGG, or the sound of an MP4 or MOV. Long files are fine.</div>
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-2">
           <button className="btn btn-primary" onClick={() => chooseFile().catch((e) => toast(String(e), "error"))}>
             <UploadIcon size={17} /> Choose a file
           </button>
-          <button className="btn btn-soft" disabled={busy} onClick={record}>
-            {busy ? <Spinner size={14} /> : <RecordIcon size={16} className="text-red" />} Record yourself
+          <button className="btn btn-soft" aria-expanded={recording} onClick={() => setRecording((r) => !r)}>
+            <RecordIcon size={16} className="text-red" /> Record yourself
           </button>
         </div>
+        <AnimatePresence>{recording && <RecordPanel onClose={() => setRecording(false)} />}</AnimatePresence>
         {error && <div className="max-w-[420px] rounded-2xl bg-[#fdecea] px-3 py-2 text-[12.5px] text-red">{error}</div>}
       </motion.div>
       <ul className="mt-4 grid grid-cols-3 gap-3 text-[12px] text-ink-2">
@@ -204,7 +259,7 @@ function Recording({ seconds, level }: { seconds: number; level: number }) {
         </button>
       </div>
       <p className="flex items-center gap-1.5 text-[12px] text-muted">
-        <MicIcon size={14} /> Uses the microphone chosen on the Live tab. Up to 30 minutes.
+        <MicIcon size={14} /> Recording your microphone as it is. Hush cleans it when you stop.
       </p>
     </div>
   );

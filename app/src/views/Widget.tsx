@@ -48,7 +48,9 @@ export function Widget() {
   }, []);
 
   if (!settings || !engine) return null;
-  const isOn = engine.status === "on" || engine.status === "starting";
+  // A session can run for Live Translate alone; noise cancellation is what the setting says.
+  const status = settings.enabled ? engine.status : "off";
+  const isOn = status === "on" || status === "starting";
   const mic = devices?.inputs.find((d) => d.name === settings.input)?.label ?? settings.input ?? "System default";
 
   return (
@@ -72,11 +74,11 @@ export function Widget() {
         </header>
 
         <div className="relative mt-3 flex items-center gap-3 rounded-[18px] bg-white/80 p-3.5" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
-          <Mochi size={50} mood={engine.status === "error" ? "oops" : isOn ? "happy" : "sleep"} />
+          <Mochi size={50} mood={status === "error" ? "oops" : isOn ? "happy" : "sleep"} />
           <div className="min-w-0 flex-1">
             <div className="whitespace-nowrap text-[14.5px] font-[640] tracking-[-0.02em]">Noise cancellation</div>
             <div className="truncate text-[12px] text-muted" title={engine.message ?? undefined}>
-              {engine.status === "error" ? engine.message : engine.status === "starting" ? "Starting…" : isOn ? "On · Hush AI Microphone" : "Off"}
+              {status === "error" ? engine.message : status === "starting" ? "Starting…" : isOn ? "On · Hush AI Microphone" : "Off"}
             </div>
           </div>
           <Toggle label="Noise cancellation" size="lg" on={isOn} onChange={(v) => api.setEnabled(v)} />

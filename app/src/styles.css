@@ -311,6 +311,12 @@ button {
 }
 
 /* Scrollbars */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 .scroll {
   overflow-y: auto;
   scrollbar-width: none;

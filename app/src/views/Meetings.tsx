@@ -7,7 +7,7 @@ import { Segmented, Spinner, Toggle } from "../components/Controls";
 import { BellIcon, CalendarIcon, LockIcon, PowerIcon, RefreshIcon, SparkleIcon, VideoIcon } from "../components/Icons";
 import { Mochi } from "../components/Mochi";
 import { toast } from "../components/Toast";
-import { features, useFeatures, type CalendarInfo, type Meeting } from "../lib/features";
+import { CALENDAR_COLORS, features, useFeatures, type CalendarInfo, type CalendarView, type Meeting } from "../lib/features";
 import { saveSettings, useApp } from "../lib/store";
 import { clockTime, dayLabel, relative, timeRange, useNow } from "../lib/time";
 
@@ -18,7 +18,7 @@ export function Meetings() {
   return (
     <>
       {calendar?.connected ? <Agenda calendar={calendar} onReconnect={() => setConnectOpen(true)} /> : <Welcome onConnect={() => setConnectOpen(true)} />}
-      <CalendarConnect open={connectOpen} onClose={() => setConnectOpen(false)} />
+      <CalendarConnect open={connectOpen} adding={!!calendar?.connected} onClose={() => setConnectOpen(false)} />
     </>
   );
 }
@@ -119,9 +119,7 @@ function Agenda({ calendar, onReconnect }: { calendar: CalendarInfo; onReconnect
       <section className="glass flex min-h-0 flex-col p-5">
         <div className="mb-3 flex items-center justify-between">
           <span className="eyebrow">Up next</span>
-          <span className="flex items-center gap-1.5 text-[12px] text-muted">
-            <img src={GOOGLE_CALENDAR_LOGO} alt="" width={14} height={14} /> {calendar.name ?? calendar.source}
-          </span>
+          <CalendarDots calendars={calendar.calendars.filter((c) => c.enabled)} />
         </div>
         {next ? <NextMeeting meeting={next} now={now} /> : <Empty />}
         <div className="scroll -mr-2 mt-4 min-h-0 flex-1 space-y-4 pr-2">
@@ -151,7 +149,10 @@ function NextMeeting({ meeting, now }: { meeting: Meeting; now: number }) {
       <div className="relative flex items-start gap-3">
         {meeting.app ? <AppIcon app={meeting.app} size={22} tile /> : <span className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-[#f4efe8]"><CalendarIcon size={19} /></span>}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[17px] font-[650] tracking-[-0.02em]">{meeting.title}</div>
+          <div className="flex items-center gap-2">
+            <div className="truncate text-[17px] font-[650] tracking-[-0.02em]">{meeting.title}</div>
+            <Origin meeting={meeting} />
+          </div>
           <div className="mt-0.5 text-[12.5px] text-muted">
             {dayLabel(meeting.start, now)} · {timeRange(meeting.start, meeting.end)}
             {meeting.app && ` · ${APP_NAMES[meeting.app]}`}
@@ -175,12 +176,48 @@ function NextMeeting({ meeting, now }: { meeting: Meeting; now: number }) {
   );
 }
 
+/** The calendars a meeting is in, as small colour dots. */
+function Origin({ meeting }: { meeting: Meeting }) {
+  const calendars = useFeatures((s) => s.calendar?.calendars ?? []);
+  if (calendars.length < 2) return null;
+  const mine = calendars.filter((c) => meeting.calendars.includes(c.id));
+  return (
+    <span className="flex shrink-0 -space-x-1" title={mine.map((c) => c.name ?? c.source).join(" · ")}>
+      {mine.map((c) => (
+        <span key={c.id} className="h-2 w-2 rounded-full ring-2 ring-white" style={{ background: CALENDAR_COLORS[c.color % CALENDAR_COLORS.length] }} />
+      ))}
+    </span>
+  );
+}
+
+function CalendarDots({ calendars }: { calendars: CalendarView[] }) {
+  if (calendars.length === 1) {
+    return (
+      <span className="flex items-center gap-1.5 text-[12px] text-muted">
+        <img src={GOOGLE_CALENDAR_LOGO} alt="" width={14} height={14} /> {calendars[0].name ?? calendars[0].source}
+      </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-2.5 text-[11.5px] text-muted">
+      {calendars.slice(0, 3).map((c) => (
+        <span key={c.id} className="flex min-w-0 items-center gap-1">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: CALENDAR_COLORS[c.color % CALENDAR_COLORS.length] }} />
+          <span className="max-w-[96px] truncate">{c.name ?? c.source}</span>
+        </span>
+      ))}
+      {calendars.length > 3 && <span>+{calendars.length - 3}</span>}
+    </span>
+  );
+}
+
 function Row({ meeting, now }: { meeting: Meeting; now: number }) {
   return (
     <li className="group flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-white/70">
       <span className="w-14 shrink-0 text-[12px] font-semibold tabular-nums text-muted">{meeting.allDay ? "All day" : clockTime(meeting.start)}</span>
       <span className="grid h-5 w-5 shrink-0 place-items-center">{meeting.app ? <AppIcon app={meeting.app} size={16} /> : <span className="h-1.5 w-1.5 rounded-full bg-faint" />}</span>
       <span className={`min-w-0 flex-1 truncate text-[13px] ${meeting.allDay ? "text-muted" : "font-[540]"}`}>{meeting.title}</span>
+      <Origin meeting={meeting} />
       {meeting.app && (
         <button className="btn btn-soft btn-sm h-7 px-3 text-[12px] opacity-70 transition-opacity group-hover:opacity-100" onClick={() => features.calendarJoin(meeting.id).catch((e) => toast(String(e), "error"))}>
           Join
@@ -261,30 +298,53 @@ function SyncPanel({ calendar, onReconnect }: { calendar: CalendarInfo; onReconn
         <Setting title="Pop up with a Join button" detail="From the tray, a minute before." on={settings.calendarPopup ?? true} onChange={(calendarPopup) => saveSettings({ calendarPopup })} />
       </div>
 
-      <div className="glass shrink-0 p-5">
-        <div className="flex items-center gap-3">
-          <img src={GOOGLE_CALENDAR_LOGO} alt="" width={26} height={26} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-semibold">{calendar.name ?? calendar.source ?? "Calendar"}</div>
-            <div className="text-[12px] text-muted">{calendar.source} · secret iCal address</div>
-          </div>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button className="btn btn-soft btn-sm" onClick={onReconnect}>
-            Change
-          </button>
-          <button
-            className="btn btn-ghost btn-sm text-red"
-            onClick={async () => {
-              await features.calendarDisconnect();
-              toast("Calendar disconnected. Hush forgot its address.");
-            }}
-          >
-            Disconnect
-          </button>
-        </div>
-      </div>
+      <Calendars calendar={calendar} onAdd={onReconnect} />
     </section>
+  );
+}
+
+function Calendars({ calendar, onAdd }: { calendar: CalendarInfo; onAdd: () => void }) {
+  const [removing, setRemoving] = useState<string | null>(null);
+  return (
+    <div className="glass shrink-0 p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[15px] font-semibold">Calendars</span>
+        <button className="btn btn-soft btn-sm h-8" onClick={onAdd}>
+          + Add a calendar
+        </button>
+      </div>
+      <ul className="divide-y divide-[var(--h-line)]">
+        {calendar.calendars.map((c) => (
+          <li key={c.id} className="flex items-center gap-3 py-2.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: CALENDAR_COLORS[c.color % CALENDAR_COLORS.length], opacity: c.enabled ? 1 : 0.35 }} />
+            <div className="min-w-0 flex-1">
+              <div className={`truncate text-[13.5px] font-[580] ${c.enabled ? "" : "text-muted"}`}>{c.name ?? c.source}</div>
+              <div className={`truncate text-[11.5px] ${c.status === "error" ? "text-red" : "text-muted"}`}>
+                {c.status === "error" ? c.error : !c.enabled ? "Paused" : c.status === "loading" ? "Syncing…" : `${c.source} · ${c.meetings} upcoming`}
+              </div>
+            </div>
+            {removing === c.id ? (
+              <button
+                className="btn btn-sm h-7 bg-[#fdecea] px-3 text-[12px] text-red"
+                onClick={async () => {
+                  await features.calendarDisconnect(c.id);
+                  setRemoving(null);
+                  toast(`${c.name ?? "Calendar"} removed. Hush forgot its address.`);
+                }}
+              >
+                Remove
+              </button>
+            ) : (
+              <button className="btn btn-ghost btn-icon h-7 w-7 text-faint hover:text-red" aria-label={`Remove ${c.name ?? c.source}`} onClick={() => setRemoving(c.id)} onBlur={() => setTimeout(() => setRemoving(null), 200)}>
+                ✕
+              </button>
+            )}
+            <Toggle label={`Follow ${c.name ?? c.source}`} on={c.enabled} onChange={(enabled) => features.calendarSetEnabled(c.id, enabled)} />
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11.5px] leading-snug text-muted">The same meeting in two calendars shows once, with one pop-up.</p>
+    </div>
   );
 }
 

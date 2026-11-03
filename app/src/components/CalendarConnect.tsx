@@ -1,6 +1,7 @@
 // Connect Google Calendar without signing in. The popup opens Google Calendar's settings,
 // shows where the secret iCal address is, notices it on the clipboard when you come back,
 // checks it with Google and shows what it found before anything is saved.
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useAnimate, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clipboardText, features, ICAL_PATTERN, type CalendarPreview } from "../lib/features";
@@ -20,8 +21,8 @@ export function maskAddress(address: string) {
   return address.replace(/^(?:https|webcal):\/\//, "").replace(/\/ical\/[^/]+\//, "/ical/…/").replace(/private-[^/]+/, "private-••••••");
 }
 
-export function CalendarConnect({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
+export function CalendarConnect({ open, onClose, adding = false }: { open: boolean; onClose: () => void; adding?: boolean }) {
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-40 grid place-items-center p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -37,15 +38,16 @@ export function CalendarConnect({ open, onClose }: { open: boolean; onClose: () 
             style={{ boxShadow: "var(--h-shadow-3)" }}
           >
             <div className="pointer-events-none absolute -left-24 -top-28 h-64 w-64 rounded-full opacity-60 blur-3xl" style={{ background: "var(--h-opal)" }} />
-            <ConnectBody onClose={onClose} />
+            <ConnectBody onClose={onClose} adding={adding} />
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
-function ConnectBody({ onClose }: { onClose: () => void }) {
+function ConnectBody({ onClose, adding }: { onClose: () => void; adding: boolean }) {
   const [state, setState] = useState<State>({ kind: "waiting" });
   const [manual, setManual] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -107,7 +109,7 @@ function ConnectBody({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2.5">
           <img src={GOOGLE_CALENDAR_LOGO} alt="" width={30} height={30} />
           <div>
-            <h2 className="text-[18px] font-[650] leading-tight tracking-[-0.02em]">Connect Google Calendar</h2>
+            <h2 className="text-[18px] font-[650] leading-tight tracking-[-0.02em]">{adding ? "Add a calendar" : "Connect Google Calendar"}</h2>
             <div className="text-[12px] text-muted">No sign-in, no password</div>
           </div>
         </div>
@@ -200,7 +202,7 @@ function ConnectBody({ onClose }: { onClose: () => void }) {
                 </motion.div>
                 <div className="flex items-center gap-2">
                   <button className="btn btn-primary" disabled={connecting} onClick={connect}>
-                    {connecting ? <Spinner size={14} /> : null} Connect
+                    {connecting ? <Spinner size={14} /> : null} {state.preview.connected ? "Already connected · Sync now" : adding ? "Add" : "Connect"}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setState({ kind: "waiting" })}>
                     Use another address

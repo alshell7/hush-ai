@@ -2,7 +2,7 @@
 // generated file and save it; with HUSH_TEST_ICAL, check and connect a calendar; with
 // HUSH_TEST_GEMINI_KEY, save the key and open a live translation in the running session.
 import { features, type CalendarInfo, type StudioEvent, type TranslateInfo } from "./features";
-import { invoke, on } from "./ipc";
+import { api, invoke, on } from "./ipc";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -70,7 +70,17 @@ async function selftestTranslate(log: (line: string) => Promise<unknown>) {
     await wait(3000);
     const after = (info as TranslateInfo | null)!;
     await log(`translate: still ${after.status}, captions ${after.heard.length}/${after.said.length} chars`);
+    // Live Translate keeps going with noise cancellation off: the session passes the voice through.
+    await api.setEnabled(false);
+    await wait(4000);
+    const bypass = await api.snapshot();
+    const still = (info as TranslateInfo | null)!;
+    if (still.status !== "on" || bypass.engine.status !== "on") throw new Error(`translate without noise cancellation: translate ${still.status}, session ${bypass.engine.status}`);
+    await log("translate: still on with noise cancellation off (pass-through session)");
     await features.translateSet(false);
+    await wait(1500);
+    await log(`translate off: session ${(await api.snapshot()).engine.status}`);
+    await api.setEnabled(true);
   } finally {
     stop();
     const removed = await features.translateRemoveKey();
