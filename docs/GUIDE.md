@@ -53,8 +53,11 @@ own list.
 
 ## Every day
 
-- **Tray or menu bar.** Click the mochi: turn noise cancellation or Live Translate on or
-  off, swap languages, change the microphone, or join your next meeting. Double-click opens
+- **The notch.** Point at the island at the top of the screen: noise cancellation, Live
+  Translate, their voice, captions and your next meeting.
+- **Tray or menu bar.** Click the mochi to open the notch (or the widget, if you chose it).
+  Turn noise cancellation or Live Translate on or off, swap languages, change the
+  microphone, or join your next meeting. Double-click opens
   the window (Windows). Right-click for the menu.
 - **Closing the window** keeps Hush running in the tray. Use **Quit** to stop it. When Hush
   is not running, Hush AI Microphone is silent.
@@ -119,6 +122,11 @@ You can also paste the address into the field. Any calendar that publishes an iC
 | Turn it off after the call | Only if Hush turned it on, and you did not turn it off yourself |
 | Pop up with a Join button | The tray widget opens a minute before the call |
 
+### Show one calendar
+
+With more than one calendar, the chips above **Up next** show **All** or one calendar's
+meetings. Hush remembers your choice.
+
 ### More than one calendar
 
 Press **+ Add a calendar** on the Meetings tab and connect another secret address, up to 12.
@@ -138,47 +146,89 @@ what to do.
 address is a secret link to your calendar: Hush keeps it only in its settings folder and
 never writes it to logs. If it leaks, reset it in Google Calendar and connect again.
 
-## Live Translate (Preview)
+## Talk: Live Translate both ways (Preview)
 
-Speak your language and the call hears you in theirs, in a natural voice, through Hush AI
-Microphone. Hush uses Google's **Gemini 3.5 Live Translate** model with your own API key.
+Talk with anyone in their language. They hear you in theirs through Hush AI Microphone; you
+read them in yours, and can hear them translated too. Hush uses Google's **Gemini 3.5 Live
+Translate** model with your own API key.
 
-1. On the **Translate** tab, press **Add your Gemini API key**. Hush opens Google AI Studio.
+1. On the **Talk** tab, press **Add your key**. Hush opens Google AI Studio.
 2. Press **Create API key** and copy it. Back in Hush, it is noticed, checked with Google and
    kept in Hush's settings folder.
-3. Choose **I speak** and **They hear** (70+ languages). ⇄ swaps them.
-4. Turn on **Live Translate**. Hush asks **Start translating now?** first, because your voice
-   goes to Google. Tick **Don't ask again** to skip it, or turn it back on in Settings.
-5. Captions show what you said and what they hear.
+3. Choose **I speak** and **They speak** (70+ languages). ⇄ swaps them. Hush remembers them.
+4. Choose what to translate:
+   - **Both ways**: they hear you in their language, you read them in yours.
+   - **My voice**: only your voice is translated.
+   - **Their voice**: only theirs.
+5. Turn on **Live Translate**. Hush asks **Start translating now?** first, because voices go to
+   Google. Tick **Don't ask again** to skip it, or turn it back on in Settings.
 
-During a call, use the switch in the tray widget, **Translate my voice** in the tray menu,
-or **Ctrl + Alt + T** (**⌘ ⌥ T** on macOS) in any app.
+The Talk tab shows the call as a chat: their words in your language (what they said in small
+print), yours with what they heard. During a call, use the notch, the tray menu
+(**Translate my voice**, **Translate their voice**) or **Ctrl + Alt + T** (**⌘ ⌥ T** on
+macOS) in any app; the shortcut turns on the directions you chose.
 
-**With or without noise cancellation.** Live Translate does not need noise cancellation. With
-it on, Google gets your cleaned voice. With it off, Hush runs a quiet pass-through session:
-your voice goes to Google as it is, and the call still hears the translation through Hush AI
-Microphone. Turning noise cancellation on or off does not stop the translation.
+**With or without noise cancellation.** Your voice does not need noise cancellation. With it
+on, Google gets your cleaned voice. With it off, Hush runs a quiet pass-through session.
 
-### History
+### Their voice: Hush AI Speaker
 
-The **History** on the Translate tab keeps what you said and what they heard, phrase by
-phrase, grouped by day, with the two languages side by side.
+Press **Their voice** on the Talk tab (or in Settings):
 
-- **Search** finds words in either language. **Copy** copies a translation.
-- **Clear** deletes the history, after you confirm.
-- It stays on this computer (`translate-history.json` in Hush's data folder), up to the last
-  1,000 phrases. Turn off **Keep a history** in Settings and Hush stops saving new phrases.
+| Option | What it does |
+| --- | --- |
+| Clean their voice: Off, Light, Full | Removes their background noise before you hear it. Light keeps a little room sound. |
+| You hear: Their voice | Their own voice; the translation shows as captions. |
+| You hear: Voice-over | Their voice turns down while the translation speaks over it, like an interpreter on TV. The default: you hear who is talking and follow what they say. |
+| You hear: Translation | Only the translated voice. |
+| Play their voice on | Your real speakers or headphones. |
+
+How Hush hears them:
+
+- **macOS and Linux:** choose **Hush AI Speaker** as the speaker in your meeting app.
+- **Windows:** with no setup, Hush listens along to your speakers and translates them (it
+  cannot clean or replace their voice this way). To clean it too, install VB-CABLE A+B from
+  VB-Audio and choose **CABLE-A Input** as the meeting's speaker; Hush finds it on its own.
+
+When Hush quits, apps that played to Hush AI Speaker fall back to your speakers (Linux) or
+stay silent until Hush runs again (macOS, Windows cable): choose your speakers again in the
+meeting app if you stop using Hush.
+
+### Conversations
+
+Every call is kept as a conversation: one calendar meeting, or one stretch of talk (a pause
+of 10 minutes starts a new one). Back-to-back meetings stay apart.
+
+- **Search** finds words in either language, meeting names and titles.
+- **Filters:** All, Starred, Meetings, and a language.
+- **Rename** with a click on the title. **Star** the ones that matter; starred ones are kept
+  longest.
+- **Export** one conversation, or all of them, as Markdown, text or JSON.
+- Conversations stay on this computer (`conversations.json` in Hush's data folder). Turn off
+  **Keep conversations** in Settings and Hush stops saving new ones.
 
 Good to know:
 
-- **It uses the internet.** While Live Translate is on, your voice goes to Google;
-  everything else in Hush stays on your computer.
-- **It follows you by a phrase or so.** Gemini translates phrase by phrase, so the other side
-  hears you a moment after you speak.
+- **It uses the internet.** While a direction is on, that voice goes to Google; everything
+  else in Hush stays on your computer.
+- **It follows by a phrase or so.** Gemini translates phrase by phrase.
 - **Cost:** Google offers a free tier; paid use is billed by Google to your key. Google's
   terms apply to the audio you send.
-- If you already speak their language, Gemini repeats you in that language, so they always
-  hear you.
+
+## The notch
+
+Hush sits at the top of your screen as a small island (on a MacBook, it hides in the camera
+notch).
+
+- **Idle:** a sliver. It costs nothing to keep.
+- **In a call** (noise cancellation on and a meeting, their voice playing, or Live Translate
+  on): it shows your level and what is happening, with a softly turning rim.
+- **Point at it** (or click the tray icon) and it opens: noise cancellation, Live Translate,
+  their voice, both sides' captions and your next meeting with **Join**.
+
+Clicks pass through everywhere except the island. Prefer the tray widget? Settings › Quick
+controls › **Show Hush as** › **Tray widget**. **Hide from screen sharing** keeps Hush's
+windows and the notch out of screenshots, screen sharing and recordings (Windows and macOS).
 
 ## Fix problems
 
@@ -195,7 +245,9 @@ Good to know:
 | Live Translate: "Google did not accept this API key" | Create a new key in Google AI Studio and add it again. |
 | Live Translate is on but they hear silence | Check that the call app uses **Hush AI Microphone**, speak a full sentence and wait a moment. Gemini answers phrase by phrase. |
 | Meetings: one calendar in the list shows an error | Its secret address was reset. Remove it and add the new address; the other calendars keep working. |
-| Ctrl + Alt + T does nothing | Another app uses the same shortcut. Use the switch in the widget instead. |
+| Ctrl + Alt + T does nothing | Another app uses the same shortcut. Use the switch in the notch or widget instead. |
+| I hear nothing from the meeting | The meeting app plays to Hush AI Speaker: keep Hush running, or choose your speakers in the meeting app. Check **Play their voice on** under Their voice. |
+| Windows: Their voice says "Listening along" | No second cable is installed: translation works, cleaning their voice needs VB-CABLE A+B. |
 
 ## Uninstall
 
@@ -212,5 +264,5 @@ Good to know:
 Noise cancellation and Studio run only on your computer. Hush connects to the internet to
 download a model (Hugging Face, or the model's original source as a fallback), to check for
 updates (GitHub), to read your calendar's iCal address if you connect one (Google), and to
-send your voice to Google while **Live Translate** is on. It sends no usage data and no
+send voices to Google while **Live Translate** is on (yours, theirs, or both, as you chose). It sends no usage data and no
 crash reports, and it has no servers of its own.

@@ -102,9 +102,45 @@ off, the engine runs a pass-through session (`bypass`): the worker copies the mi
 the output unchanged, so the tap and Hush AI Microphone work as usual, and the tray shows
 noise cancellation as off. The session stops when both are off.
 
-The translator joins the captions of one phrase (until a 2.5-second pause) into a history
-entry with both languages and writes the last 1,000 to `translate-history.json` in the app
-data folder, unless the user turned the history off.
+The translator joins the captions of one phrase (until a 2.5-second pause) into a line with
+both languages and hands it to the conversations (see Conversations), unless the user turned
+them off. Their voice works the same way through the listener's tap.
+
+## Their voice: the listener
+
+`listen.rs` keeps one thread that owns the streams for the other side's voice (cpal streams
+are not `Send`):
+
+- **Hush AI Speaker mode.** The meeting app plays to a virtual speaker: the Core Audio
+  plug-in's speaker ring on macOS (`hush_core::virtual_speaker`), a PulseAudio null sink on
+  Linux, or a render endpoint named "Hush AI Speaker" / VB-CABLE A or B on Windows, read by
+  WASAPI loopback. Hush resamples to 48 kHz, cleans with DeepFilterNet 3 (attenuation limit
+  12 dB for Light, 100 dB for Full), and plays it on the real output through a small queue
+  that drops the excess beyond 80 ms, so their voice stays in step with the video.
+- **Listening along.** Without a virtual speaker, Hush captures what the speakers play
+  (WASAPI loopback, or the default sink's monitor) for translation only, and only while their
+  voice is translated.
+
+The capture callback only queues samples; one loop does the rest. Their voice feeds a
+translation tap like yours (`translate::tap`); with Voice-over, their voice ducks to 22% in
+about 40 ms while the translation speaks and comes back over 400 ms.
+
+## Conversations
+
+`conversation.rs` keeps every finished phrase (both sides, both languages) in threads. A
+thread is one calendar meeting (`Calendar::current`) or one stretch of talk: a pause of 10
+minutes or a different meeting starts a new one. Up to 500 threads and 40,000 lines are kept
+in `conversations.json`, written at most every 3 seconds, starred threads last. Version 1.1's
+`translate-history.json` is moved in on first read. Export renders Markdown, text or JSON.
+
+## The notch
+
+`notch.rs` creates one transparent, always-on-top window at the top centre of the main
+screen; on macOS it sits above the menu bar on every Space (`NSWindow` level 25) and measures
+the camera notch (`safeAreaInsets`, `auxiliaryTopLeftArea`). The page reports the island's
+rectangle; a thread polls the cursor (every 40–60 ms, only while the window shows), passes
+clicks through outside the island (`set_ignore_cursor_events`) and tells the page when the
+cursor is near. `set_content_protected` keeps the windows out of screen captures when asked.
 
 ## App
 

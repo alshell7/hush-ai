@@ -102,9 +102,54 @@ function AgendaPreview() {
   );
 }
 
+/** The calendar the agenda shows, remembered on this computer ("" for all). */
+function useCalendarFilter(calendars: CalendarView[]) {
+  const [chosen, setChosen] = useState(() => {
+    try {
+      return localStorage.getItem("hush.meetings.calendar") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const choose = (id: string) => {
+    setChosen(id);
+    try {
+      localStorage.setItem("hush.meetings.calendar", id);
+    } catch {
+      // Private storage: the choice lasts until the window closes.
+    }
+  };
+  // A calendar that was removed or paused falls back to all.
+  const valid = calendars.some((c) => c.id === chosen && c.enabled) ? chosen : "";
+  return [valid, choose] as const;
+}
+
+function CalendarFilter({ calendars, value, onChange }: { calendars: CalendarView[]; value: string; onChange: (id: string) => void }) {
+  if (calendars.length < 2) return <CalendarDots calendars={calendars} />;
+  const chip = (id: string, label: string, color?: string) => (
+    <button
+      key={id || "all"}
+      aria-pressed={value === id}
+      onClick={() => onChange(id)}
+      className={`chip h-7 shrink-0 cursor-pointer gap-1.5 px-2.5 text-[11.5px] transition-colors ${value === id ? "bg-[var(--h-ink)] text-white" : "hover:bg-white"}`}
+    >
+      {color && <span className="h-2 w-2 rounded-full" style={{ background: color }} />}
+      <span className="max-w-[96px] truncate">{label}</span>
+    </button>
+  );
+  return (
+    <div role="group" aria-label="Show meetings from" className="no-scrollbar flex min-w-0 items-center gap-1.5 overflow-x-auto">
+      {chip("", "All")}
+      {calendars.map((c) => chip(c.id, c.name ?? c.source, CALENDAR_COLORS[c.color % CALENDAR_COLORS.length]))}
+    </div>
+  );
+}
+
 function Agenda({ calendar, onReconnect }: { calendar: CalendarInfo; onReconnect: () => void }) {
   const now = useNow(15_000);
-  const upcoming = calendar.meetings.filter((m) => m.end > now);
+  const enabled = calendar.calendars.filter((c) => c.enabled);
+  const [only, setOnly] = useCalendarFilter(enabled);
+  const upcoming = calendar.meetings.filter((m) => m.end > now && (!only || m.calendars.includes(only)));
   const timed = upcoming.filter((m) => !m.allDay);
   const next = timed.find((m) => m.start > now - 60_000 || m.end > now);
   const groups = new Map<string, Meeting[]>();
@@ -117,9 +162,9 @@ function Agenda({ calendar, onReconnect }: { calendar: CalendarInfo; onReconnect
   return (
     <main className="grid min-h-0 flex-1 grid-cols-[1.25fr_1fr] gap-4">
       <section className="glass flex min-h-0 flex-col p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="eyebrow">Up next</span>
-          <CalendarDots calendars={calendar.calendars.filter((c) => c.enabled)} />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="eyebrow shrink-0">Up next</span>
+          <CalendarFilter calendars={enabled} value={only} onChange={setOnly} />
         </div>
         {next ? <NextMeeting meeting={next} now={now} /> : <Empty />}
         <div className="scroll -mr-2 mt-4 min-h-0 flex-1 space-y-4 pr-2">

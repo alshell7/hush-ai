@@ -283,3 +283,41 @@ export const KeyIcon = (p: P) => (
     <path d="m11.3 11.7 8.2-8.2M17 6l2.5 2.5M14.5 8.5 16.5 10.5" />
   </Svg>
 );
+
+export const StarIcon = ({ filled = false, ...p }: P & { filled?: boolean }) => (
+  <Svg {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
+  </Svg>
+);
+
+export const SpeakerIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11" />
+  </Svg>
+);
+
+export const SearchIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4 4" />
+  </Svg>
+);
+
+export const TrashIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.8 12.2h9.4L17.5 7" />
+  </Svg>
+);
+
+export const PencilIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="m14.5 5.5 4 4L9 19H5v-4z" />
+  </Svg>
+);
+
+export const ChatIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z" />
+  </Svg>
+);

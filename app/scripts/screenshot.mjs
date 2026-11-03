@@ -1,7 +1,7 @@
 // Screenshot a page in headless Edge/Chrome over the DevTools protocol, in real time so
 // animations finish. Usage: node scripts/screenshot.mjs <url> <out.png> <width> <height> [wait ms]
 import { spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,7 +14,9 @@ const browser =
       ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
       : "google-chrome");
 const port = 9300 + Math.floor(Math.random() * 500);
-const proc = spawn(browser, ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`, `--user-data-dir=${join(tmpdir(), `shot-${port}`)}`, "about:blank"], { stdio: "ignore" });
+// A throwaway browser profile (about 300 MB), deleted when the browser exits.
+const profile = join(tmpdir(), `shot-${port}`);
+const proc = spawn(browser, ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let target;
@@ -54,5 +56,9 @@ if (!stops) {
   }
 }
 ws.close();
-proc.kill();
+await new Promise((done) => {
+  proc.once("exit", done);
+  proc.kill();
+});
+rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 console.log(`saved ${out}`);

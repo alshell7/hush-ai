@@ -4,7 +4,8 @@
   "description": "Hush AI windows",
   "windows": [
     "main",
-    "widget"
+    "widget",
+    "notch"
   ],
   "permissions": [
     "core:default",

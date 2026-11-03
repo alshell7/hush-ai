@@ -56,6 +56,20 @@ jobs:
         run: sh virtual_mic/macos/build.sh target
       - run: npm ci
         working-directory: app
+      # This version's section of CHANGELOG.md: the release's notes, and what the app shows
+      # when it offers the update.
+      - name: Release notes
+        id: notes
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes="$(awk -v head="## $version" '$0 == head { found = 1; next } /^## / { found = 0 } found' CHANGELOG.md)"
+          [ -n "$notes" ] || notes="- Fixes and improvements."
+          {
+            echo "body<<HUSH_NOTES_END"
+            echo "$notes"
+            echo "HUSH_NOTES_END"
+          } >> "$GITHUB_OUTPUT"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,6 +81,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Hush AI ${{ github.ref_name }}
           releaseBody: |
+            ${{ steps.notes.outputs.body }}
+
+            <!-- downloads -->
             **Download** the file for your computer below. On first launch, Windows and macOS ask once because the apps are not code-signed yet ([how to allow it](https://alshell7.github.io/hush-ai/#faq)).
 
             | Computer | File |

@@ -19,6 +19,10 @@ impl DeepFilter {
         ))
     }
 
+    pub fn load_with_limit(path: impl AsRef<Path>, _limit_db: f32) -> Result<Self> {
+        Self::load(path)
+    }
+
     pub fn set_worker_scheduling(&mut self, _scheduling: WorkerScheduling) {
         match *self {}
     }

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { DevicePicker, Segmented, Spinner, Tip, Toggle } from "../components/Controls";
+import { TheirVoiceButton } from "../components/TranslateCard";
 import { CloseIcon, ExternalIcon, GitHubIcon, HeadphonesIcon, InfoIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { ModelDownload } from "../components/ModelDownload";
@@ -126,6 +127,15 @@ function SettingsBody() {
           <button className="btn btn-soft btn-sm" disabled={checking} onClick={check}>
             {checking ? <Spinner size={14} /> : null} Check now
           </button>
+        </Row>
+      </Section>
+
+      <Section title="Quick controls">
+        <Row title="Show Hush as" detail={settings.overlay === "widget" ? "A small window at the tray icon." : "An island at the top of the screen that wakes up in calls and opens when you point at it."}>
+          <Segmented size="sm" label="Show Hush as" value={settings.overlay ?? "notch"} options={[{ value: "notch", label: "Notch" }, { value: "widget", label: "Tray widget" }]} onChange={(overlay) => saveSettings({ overlay })} />
+        </Row>
+        <Row title="Hide from screen sharing" detail="Hush's windows and the notch stay out of screenshots, screen sharing and recordings.">
+          <Toggle label="Hide from screen sharing" on={!!settings.hideFromCapture} onChange={(hideFromCapture) => saveSettings({ hideFromCapture })} />
         </Row>
       </Section>
 
@@ -263,7 +273,7 @@ function TranslateSettings() {
   if (!info) return null;
   return (
     <Section title="Live Translate">
-      <Row title="Gemini API key" detail={info.hasKey ? `Saved on this computer · ends in ${info.keyHint}` : "Not set up. Add it on the Live tab."}>
+      <Row title="Gemini API key" detail={info.hasKey ? `Saved on this computer · ends in ${info.keyHint}` : "Not set up. Add it on the Talk tab."}>
         {info.hasKey && (
           <button
             className="btn btn-soft btn-sm"
@@ -276,13 +286,16 @@ function TranslateSettings() {
           </button>
         )}
       </Row>
-      <Row title="Ask before starting" detail="A reminder that your voice goes to Google.">
+      <Row title="Ask before starting" detail="A reminder that voices go to Google.">
         <Toggle label="Ask before starting" on={settings?.translateAsk ?? true} onChange={(translateAsk) => saveSettings({ translateAsk })} />
       </Row>
-      <Row title="Keep a history" detail="What you said and what they heard, on this computer only.">
-        <Toggle label="Keep a history" on={settings?.translateHistory ?? true} onChange={(translateHistory) => saveSettings({ translateHistory })} />
+      <Row title="Keep conversations" detail="Both sides, in both languages, grouped by meeting. On this computer only.">
+        <Toggle label="Keep conversations" on={settings?.translateHistory ?? true} onChange={(translateHistory) => saveSettings({ translateHistory })} />
       </Row>
-      <Row title="Shortcut" detail="Turns Live Translate on and off, in any app.">
+      <Row title="Their voice" detail="Hush AI Speaker: clean their voice and choose what you hear.">
+        <TheirVoiceButton />
+      </Row>
+      <Row title="Shortcut" detail="Turns Live Translate on and off, in any app, in the directions you chose.">
         <kbd className="chip font-sans">{TRANSLATE_SHORTCUT}</kbd>
       </Row>
     </Section>

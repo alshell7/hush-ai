@@ -37,8 +37,10 @@ from your voice while you talk**, and from recordings you already have.
 - **In Studio**, drop an audio or video file, or record yourself, and save a clean WAV.
 - **With Google Calendar**, Hush turns itself on a minute before each call and pops up with a
   Join button. No Google sign-in.
-- **With Live Translate** (Preview), you speak your language and the call hears you in
-  theirs, through Google's Gemini Live Translate and your own API key.
+- **With Live Translate** (Preview), you talk with anyone both ways: they hear you in their
+  language, and you read (or hear) them in yours, through Google's Gemini Live Translate and
+  your own API key.
+- **With Hush AI Speaker**, the other side's noisy room is cleaned before you hear it.
 
 No account. No subscription. No minute limits. Noise cancellation never leaves your computer.
 
@@ -49,11 +51,13 @@ No account. No subscription. No minute limits. Noise cancellation never leaves y
 | 🔒 **On your computer** | Noise cancellation and Studio run on your CPU. Hush sends no telemetry and has no servers. |
 | 🪶 **Light** | The default engine, DeepFilterNet 3, needs one thread: about 7% of a laptop core offline, 11–13% live. Your laptop stays cool and quiet. |
 | ⚡ **Real time** | 10–20 ms frames, about 60 ms before device buffers. |
-| 🎙️ **Works everywhere** | One virtual microphone for every app. A tray and menu bar widget to switch it on and off. |
+| 🎙️ **Works everywhere** | One virtual microphone for every app, and Hush AI Speaker for what they say. |
+| 🏝️ **The notch** | Hush sits at the top of your screen, wakes up in calls and opens when you point at it. Or keep the tray widget. Both can hide from screen sharing. |
 | 🎚️ **Two engines** | DeepFilterNet 3 (light, the default) or NVIDIA Real-time RE-USE (most natural at high settings). Switch any time. |
 | 📼 **Studio** | Clean up podcasts, voice notes, interviews and lectures. Drag and drop, compare before and after, save. |
 | 📅 **Meetings** | Google Calendar through its private iCal address. Hush is ready before your call is. |
-| 🌍 **Live Translate** | Preview. Pick "I speak" and "They hear" from 70+ languages; switch it in calls with Ctrl+Alt+T. The one feature that uses the cloud, and only while it is on. |
+| 🌍 **Live Translate** | Preview. Both ways, in 70+ languages: they hear you in theirs, you read (or hear a voice-over of) them in yours. Ctrl+Alt+T in any call. The one feature that uses the cloud, and only while it is on. |
+| 💬 **Conversations** | Every call kept as a conversation, grouped by meeting, with search, stars, filters and export. On your computer. |
 | 🔓 **Open source** | Apache-2.0 app and engine. Read every line. |
 
 ## Hush AI, Krisp and Adobe Podcast
@@ -139,26 +143,41 @@ both waveforms, and lets you switch between the original and the clean version w
 plays. **Save clean WAV** writes a 48 kHz file wherever you like. Long files are fine: Hush
 reads and writes them in pieces, so memory stays flat.
 
-### Live Translate: be heard in their language
+### Talk: Live Translate both ways
 
-1. On the **Translate** tab, press **Add your Gemini API key**. Hush opens
+1. On the **Talk** tab, press **Add your key**. Hush opens
    [Google AI Studio](https://aistudio.google.com/apikey); press **Create API key** and copy
    it. Back in Hush, the key is noticed, checked with Google and kept in Hush's settings
    folder.
-2. Choose **I speak** and **They hear**; ⇄ swaps them.
-3. Turn on **Live Translate**. Hush asks once before it starts, since your voice goes to
-   Google ("Don't ask again" skips it). Your apps hear the translated voice through Hush AI
-   Microphone, and captions show what you said and what they hear.
+2. Choose **I speak** and **They speak**; ⇄ swaps them. Hush remembers them.
+3. Choose **Both ways**, **My voice** or **Their voice**, and turn on **Live Translate**. Hush
+   asks once before it starts, since voices go to Google ("Don't ask again" skips it).
 
-Live Translate works with noise cancellation on or off: on, Google gets your cleaned
-voice; off, Hush passes your voice through as it is. The **History** on the Translate tab
-keeps each phrase in both languages, grouped by day, with search and copy. It stays on your
-computer, and you can clear it or turn it off in Settings.
+- **Your voice:** the call hears you in their language through Hush AI Microphone, with
+  noise cancellation on or off.
+- **Their voice:** you read them in your language as they speak. With Hush AI Speaker you can
+  also hear the translation: **Their voice** (captions only), **Voice-over** (their voice
+  turned down under the translation, like an interpreter; the default) or **Translation**.
 
-In a call, switch it from the tray widget, the tray menu (**Translate my voice**) or with
-**Ctrl + Alt + T** (**⌘ ⌥ T** on macOS). While it is on, your voice goes to
-Google's `gemini-3.5-live-translate-preview` model; Google's terms and pricing apply to your
-key (there is a free tier). The translation follows you by a phrase or so.
+Every call becomes a **conversation** on the Talk tab: a calendar meeting, or one stretch of
+talk, with both sides in both languages. Search, star, rename, filter by language, and export
+as Markdown, text or JSON. Conversations stay on your computer.
+
+In a call, use the notch, the tray menu (**Translate my voice**, **Translate their voice**)
+or **Ctrl + Alt + T** (**⌘ ⌥ T** on macOS). While it is on, voices go to Google's
+`gemini-3.5-live-translate-preview` model; Google's terms and pricing apply to your key
+(there is a free tier). The translation follows the speaker by a phrase or so.
+
+### Hush AI Speaker: hear them clearly
+
+In your meeting app, choose **Hush AI Speaker** as the speaker. Hush removes their keyboard,
+traffic and room noise (Light or Full) and plays them on your real speakers or headphones.
+
+- **macOS:** Hush AI Speaker comes with Hush AI Microphone.
+- **Linux:** Hush creates it in PulseAudio or PipeWire.
+- **Windows:** the free VB-CABLE is already Hush AI Microphone, so Hush listens along to your
+  speakers for translation with no setup. To also clean their voice, install a second cable
+  (VB-CABLE A+B from VB-Audio) and choose **CABLE-A Input** as the meeting's speaker.
 
 ### Meetings: Google Calendar without signing in
 

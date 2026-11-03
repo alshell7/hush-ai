@@ -1,9 +1,12 @@
-//! Live Translate: your clean voice, translated as you speak, through Google's Gemini Live
-//! Translate model. While it is on, the live session hands its output to this module and
-//! sends the translated voice to the Hush AI Microphone instead.
+//! Live Translate, both ways, through Google's Gemini Live Translate model:
+//! - your voice, translated for them: the live session hands its output to this module and
+//!   sends the translated voice to the Hush AI Microphone instead;
+//! - their voice, translated for you: the listener (`listen.rs`) hands what the meeting app
+//!   plays, and shows (and can play) the translation.
 //!
 //! This is the one Hush feature that sends audio off the computer, to Google, and only while
-//! it is on. It uses the user's own Gemini API key, stored in Hush's settings folder.
+//! a direction is on. It uses the user's own Gemini API key, stored in Hush's settings folder.
+use crate::conversation::{Line, Side};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use eyre::{eyre, Result};
 use hush_core::resample::StreamingMono;
@@ -32,10 +35,8 @@ const RECEIVE_RATE: u32 = 24_000;
 const CHUNK: usize = SEND_RATE as usize / 10;
 /// Captions keep the last few sentences.
 const CAPTION_CHARS: usize = 220;
-/// A pause this long ends a history entry.
+/// A pause this long ends a phrase.
 const ENTRY_PAUSE: Duration = Duration::from_millis(2500);
-/// History keeps this many entries.
-const HISTORY: usize = 1000;
 
 /// Languages Gemini Live Translate speaks (BCP-47).
 pub const LANGUAGES: &[&str] = &[
@@ -56,32 +57,33 @@ pub enum Status {
     Error,
 }
 
+/// One direction of a conversation, as the windows show it.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaneInfo {
+    pub on: bool,
+    pub status: Status,
+    pub message: Option<String>,
+    /// What was said, and its translation, as rolling captions.
+    pub original: String,
+    pub translated: String,
+    /// The language Gemini hears.
+    pub detected: Option<String>,
+    /// The phrase still being said: not yet in the conversation.
+    pub pending_original: String,
+    pub pending_translated: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranslateInfo {
     pub has_key: bool,
     /// The last four characters of the key, to recognize it.
     pub key_hint: Option<String>,
-    pub on: bool,
-    pub status: Status,
-    pub message: Option<String>,
-    /// What you said, and what the other side hears, as rolling captions.
-    pub heard: String,
-    pub said: String,
-    /// The language Gemini hears you speaking.
-    pub detected: Option<String>,
-}
-
-/// One translated phrase: what you said and what the other side heard.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Entry {
-    /// Unix time in milliseconds when it started; also its id.
-    pub at: i64,
-    pub from: String,
-    pub to: String,
-    pub heard: String,
-    pub said: String,
+    /// Your voice, translated for them.
+    pub me: LaneInfo,
+    /// Their voice, translated for you.
+    pub them: LaneInfo,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -89,31 +91,89 @@ struct Stored {
     key: Option<String>,
 }
 
-struct Inner {
-    key: Option<String>,
+struct Lane {
     on: bool,
     status: Status,
     message: Option<String>,
-    heard: String,
-    said: String,
+    original: String,
+    translated: String,
     detected: Option<String>,
-    last_emit: Instant,
     /// The phrase being translated now, and when text last arrived for it.
-    current: Option<Entry>,
+    current: Option<Line>,
     last_text: Instant,
-    /// Kept on this computer only; `None` until first read.
-    history: Option<Vec<Entry>>,
 }
 
-/// The app-wide translation state. The live session reads `on` and the languages from it.
+impl Lane {
+    fn new() -> Self {
+        Self {
+            on: false,
+            status: Status::Off,
+            message: None,
+            original: String::new(),
+            translated: String::new(),
+            detected: None,
+            current: None,
+            last_text: Instant::now(),
+        }
+    }
+
+    fn info(&self) -> LaneInfo {
+        LaneInfo {
+            on: self.on,
+            status: self.status,
+            message: self.message.clone(),
+            original: self.original.clone(),
+            translated: self.translated.clone(),
+            detected: self.detected.clone(),
+            pending_original: self
+                .current
+                .as_ref()
+                .map(|l| l.original.clone())
+                .unwrap_or_default(),
+            pending_translated: self
+                .current
+                .as_ref()
+                .map(|l| l.translated.clone())
+                .unwrap_or_default(),
+        }
+    }
+}
+
+struct Inner {
+    key: Option<String>,
+    lanes: [Lane; 2],
+    last_emit: Instant,
+}
+
+fn index(side: Side) -> usize {
+    match side {
+        Side::Me => 0,
+        Side::Them => 1,
+    }
+}
+
+/// The languages of one direction: (spoken, translated into). You speak `translate_from`
+/// and they hear `translate_to`; they speak `translate_to` and you read `translate_from`.
+pub fn languages(settings: &crate::settings::Settings, side: Side) -> (String, String) {
+    match side {
+        Side::Me => (
+            settings.translate_from.clone(),
+            settings.translate_to.clone(),
+        ),
+        Side::Them => (
+            settings.translate_to.clone(),
+            settings.translate_from.clone(),
+        ),
+    }
+}
+
+/// The app-wide translation state. Each live session reads its direction's flag.
 pub struct Translator {
     inner: Mutex<Inner>,
     /// Where the API key is kept.
     path: PathBuf,
-    /// Where the history is kept.
-    history_path: PathBuf,
-    /// Shared with the live session's audio tap.
-    pub active: Arc<AtomicBool>,
+    /// Shared with the audio taps: your voice, their voice.
+    flags: [Arc<AtomicBool>; 2],
 }
 
 impl Translator {
@@ -130,24 +190,14 @@ impl Translator {
         Self {
             inner: Mutex::new(Inner {
                 key: stored.key,
-                on: false,
-                status: Status::Off,
-                message: None,
-                heard: String::new(),
-                said: String::new(),
-                detected: None,
+                lanes: [Lane::new(), Lane::new()],
                 last_emit: Instant::now(),
-                current: None,
-                last_text: Instant::now(),
-                history: None,
             }),
-            history_path: app
-                .path()
-                .app_data_dir()
-                .unwrap_or_default()
-                .join("translate-history.json"),
             path,
-            active: Arc::new(AtomicBool::new(false)),
+            flags: [
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicBool::new(false)),
+            ],
         }
     }
 
@@ -164,18 +214,25 @@ impl Translator {
                     .rev()
                     .collect()
             }),
-            on: inner.on,
-            status: inner.status,
-            message: inner.message.clone(),
-            heard: inner.heard.clone(),
-            said: inner.said.clone(),
-            detected: inner.detected.clone(),
+            me: inner.lanes[0].info(),
+            them: inner.lanes[1].info(),
         }
     }
 
+    /// Whether a direction is on.
+    pub fn is_on(&self, side: Side) -> bool {
+        self.inner.lock().unwrap().lanes[index(side)].on
+    }
+
+    /// The flag an audio tap follows.
+    pub fn flag(&self, side: Side) -> Arc<AtomicBool> {
+        self.flags[index(side)].clone()
+    }
+
     fn publish(&self, app: &AppHandle) {
-        let _ = app.emit("translate", self.info());
-        crate::tray::update_translate(app, self.inner.lock().unwrap().on);
+        let info = self.info();
+        crate::tray::update_translate(app, info.me.on, info.them.on);
+        let _ = app.emit("translate", info);
     }
 
     pub fn key(&self) -> Option<String> {
@@ -206,54 +263,59 @@ impl Translator {
 
     pub fn remove_key(&self, app: &AppHandle) -> TranslateInfo {
         let _ = std::fs::remove_file(&self.path);
-        self.set_on(app, false);
+        self.set_on(app, Side::Me, false);
+        self.set_on(app, Side::Them, false);
         self.inner.lock().unwrap().key = None;
         self.publish(app);
         self.info()
     }
 
-    /// Turn translation on or off. It works while noise cancellation runs.
-    pub fn set_on(&self, app: &AppHandle, on: bool) {
-        {
+    /// Turn one direction on or off.
+    pub fn set_on(&self, app: &AppHandle, side: Side, on: bool) {
+        let ended = {
             let mut inner = self.inner.lock().unwrap();
-            if on && inner.key.is_none() {
-                inner.message = Some("Add your Gemini API key first.".into());
-                inner.status = Status::Error;
+            let no_key = inner.key.is_none();
+            let lane = &mut inner.lanes[index(side)];
+            if on && no_key {
+                lane.message = Some("Add your Gemini API key first.".into());
+                lane.status = Status::Error;
                 drop(inner);
                 self.publish(app);
                 return;
             }
-            inner.on = on;
-            inner.status = if on { Status::Connecting } else { Status::Off };
-            if !on {
-                if let Some(entry) = inner.current.take() {
-                    drop(inner);
-                    self.keep(app, entry);
-                    inner = self.inner.lock().unwrap();
-                }
-            }
-            inner.message = None;
+            lane.on = on;
+            lane.status = if on { Status::Connecting } else { Status::Off };
+            lane.message = None;
             if on {
-                inner.heard.clear();
-                inner.said.clear();
-                inner.detected = None;
+                lane.original.clear();
+                lane.translated.clear();
+                lane.detected = None;
             }
+            if on {
+                None
+            } else {
+                lane.current.take()
+            }
+        };
+        if let Some(line) = ended {
+            self.keep(app, line);
         }
-        self.active.store(on, Ordering::Release);
+        self.flags[index(side)].store(on, Ordering::Release);
         self.publish(app);
     }
 
-    fn status(&self, app: &AppHandle, status: Status, message: Option<String>) {
+    fn status(&self, app: &AppHandle, side: Side, status: Status, message: Option<String>) {
         {
             let mut inner = self.inner.lock().unwrap();
-            if !inner.on && status != Status::Off {
+            let lane = &mut inner.lanes[index(side)];
+            if !lane.on && status != Status::Off {
                 return;
             }
-            if inner.status == status && inner.message == message {
+            if lane.status == status && lane.message == message {
                 return;
             }
-            inner.status = status;
-            inner.message = message;
+            lane.status = status;
+            lane.message = message;
         }
         self.publish(app);
     }
@@ -262,12 +324,14 @@ impl Translator {
     fn caption(
         &self,
         app: &AppHandle,
-        heard: Option<&str>,
-        said: Option<&str>,
+        side: Side,
+        original: Option<&str>,
+        translated: Option<&str>,
         language: Option<String>,
     ) {
         let send = {
             let mut inner = self.inner.lock().unwrap();
+            let lane = &mut inner.lanes[index(side)];
             let roll = |text: &mut String, add: &str| {
                 text.push_str(add);
                 if text.len() > CAPTION_CHARS * 2 {
@@ -278,35 +342,36 @@ impl Translator {
                     text.replace_range(..cut, "…");
                 }
             };
-            if let Some(add) = heard {
-                roll(&mut inner.heard, add);
+            if let Some(add) = original {
+                roll(&mut lane.original, add);
             }
-            if let Some(add) = said {
-                roll(&mut inner.said, add);
+            if let Some(add) = translated {
+                roll(&mut lane.translated, add);
             }
             if language.is_some() {
-                inner.detected = language;
+                lane.detected = language;
             }
-            // The same text, phrase by phrase, for the history.
-            if inner.current.is_none() {
-                let settings = app.state::<crate::AppState>().settings();
-                inner.current = Some(Entry {
+            // The same text, phrase by phrase, for the conversation.
+            if lane.current.is_none() {
+                let (from, to) = languages(&app.state::<crate::AppState>().settings(), side);
+                lane.current = Some(Line {
                     at: chrono::Utc::now().timestamp_millis(),
-                    from: inner.detected.clone().unwrap_or(settings.translate_from),
-                    to: settings.translate_to,
-                    heard: String::new(),
-                    said: String::new(),
+                    side,
+                    from,
+                    to,
+                    original: String::new(),
+                    translated: String::new(),
                 });
             }
-            let detected = inner.detected.clone();
-            if let Some(entry) = inner.current.as_mut() {
-                entry.heard.push_str(heard.unwrap_or(""));
-                entry.said.push_str(said.unwrap_or(""));
+            let detected = lane.detected.clone();
+            if let Some(line) = lane.current.as_mut() {
+                line.original.push_str(original.unwrap_or(""));
+                line.translated.push_str(translated.unwrap_or(""));
                 if let Some(language) = detected {
-                    entry.from = language;
+                    line.from = language;
                 }
             }
-            inner.last_text = Instant::now();
+            lane.last_text = Instant::now();
             let due = inner.last_emit.elapsed() >= Duration::from_millis(125);
             if due {
                 inner.last_emit = Instant::now();
@@ -318,73 +383,35 @@ impl Translator {
         }
     }
 
-    /// Ends the current phrase after a pause. Called often by the translator thread.
-    fn tick(&self, app: &AppHandle) {
+    /// Ends the current phrase after a pause. Called often by the translator threads.
+    fn tick(&self, app: &AppHandle, side: Side) {
         let ended = {
             let mut inner = self.inner.lock().unwrap();
-            if inner.current.is_some() && inner.last_text.elapsed() >= ENTRY_PAUSE {
-                inner.current.take()
+            let lane = &mut inner.lanes[index(side)];
+            if lane.current.is_some() && lane.last_text.elapsed() >= ENTRY_PAUSE {
+                lane.current.take()
             } else {
                 None
             }
         };
-        if let Some(entry) = ended {
-            self.keep(app, entry);
+        if let Some(line) = ended {
+            self.keep(app, line);
+            let _ = app.emit("translate", self.info());
         }
     }
 
-    /// Add a finished phrase to the history, if the user keeps one.
-    fn keep(&self, app: &AppHandle, mut entry: Entry) {
-        entry.heard = entry.heard.trim().to_string();
-        entry.said = entry.said.trim().to_string();
-        if entry.heard.is_empty() && entry.said.is_empty() {
+    /// Add a finished phrase to the conversations, if the user keeps them.
+    fn keep(&self, app: &AppHandle, mut line: Line) {
+        line.original = line.original.trim().to_string();
+        line.translated = line.translated.trim().to_string();
+        if line.original.is_empty() && line.translated.is_empty() {
             return;
         }
         if !app.state::<crate::AppState>().settings().translate_history {
             return;
         }
-        let snapshot = {
-            let mut inner = self.inner.lock().unwrap();
-            let history = self.loaded(&mut inner);
-            history.push(entry.clone());
-            let extra = history.len().saturating_sub(HISTORY);
-            history.drain(..extra);
-            history.clone()
-        };
-        if let Err(error) = self.save(&snapshot) {
-            log::warn!("Translate history: {error:#}");
-        }
-        let _ = app.emit("translate-entry", entry);
-    }
-
-    fn loaded<'a>(&self, inner: &'a mut Inner) -> &'a mut Vec<Entry> {
-        inner.history.get_or_insert_with(|| {
-            std::fs::read(&self.history_path)
-                .ok()
-                .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-                .unwrap_or_default()
-        })
-    }
-
-    fn save(&self, history: &[Entry]) -> Result<()> {
-        if let Some(dir) = self.history_path.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
-        let temporary = self.history_path.with_extension("json.tmp");
-        std::fs::write(&temporary, serde_json::to_vec(history)?)?;
-        std::fs::rename(&temporary, &self.history_path)?;
-        Ok(())
-    }
-
-    /// Every kept phrase, oldest first.
-    pub fn history(&self) -> Vec<Entry> {
-        let mut inner = self.inner.lock().unwrap();
-        self.loaded(&mut inner).clone()
-    }
-
-    pub fn clear_history(&self) {
-        self.inner.lock().unwrap().history = Some(Vec::new());
-        let _ = std::fs::remove_file(&self.history_path);
+        app.state::<crate::conversation::Conversations>()
+            .add(app, line);
     }
 }
 
@@ -586,21 +613,38 @@ fn parse(text: &str) -> Received {
     out
 }
 
-// ---------------------------------------------------------------- Live session worker
+// ---------------------------------------------------------------- Audio taps and workers
 
-/// The audio side of translation, used in the live session's output callback. While
-/// translation is on, the clean voice goes to the translator and the translated voice
-/// replaces it. Lock-free and allocation-free: two queues and a flag.
+/// The audio side of one direction. While it is on, the voice goes to the translator, and
+/// [`apply`](Self::apply) replaces it with the translated voice. Lock-free and allocation-free:
+/// two queues and a flag.
 pub struct Tap {
     active: Arc<AtomicBool>,
     clean: Producer<f32>,
     translated: Consumer<f32>,
-    /// The output device's rate, set once the session knows it.
+    /// The device's rate, set once the session knows it.
     pub rate: Arc<AtomicU32>,
 }
 
 impl Tap {
+    /// Send the voice and play the translation in its place.
     pub fn apply(&mut self, block: &mut [f32]) {
+        if !self.feed(block) {
+            return;
+        }
+        for sample in block.iter_mut() {
+            *sample = self.translated.pop().unwrap_or(0.0);
+        }
+    }
+
+    /// Whether the direction is on.
+    pub fn is_on(&self) -> bool {
+        self.active.load(Ordering::Relaxed)
+    }
+
+    /// Send the voice only; the translated voice drains away unheard. Returns whether the
+    /// direction is on.
+    pub fn feed(&mut self, block: &[f32]) -> bool {
         if !self.active.load(Ordering::Relaxed) {
             // Let an old translation drain away, a little per callback.
             for _ in 0..block.len() * 4 {
@@ -608,14 +652,30 @@ impl Tap {
                     break;
                 }
             }
-            return;
+            return false;
         }
-        for sample in block.iter() {
+        for sample in block {
             let _ = self.clean.push(*sample);
         }
-        for sample in block.iter_mut() {
-            *sample = self.translated.pop().unwrap_or(0.0);
+        true
+    }
+
+    /// Feed the voice and take as much translated voice as is ready (for mixing or replacing).
+    pub fn feed_and_take(&mut self, block: &[f32], out: &mut [f32]) -> usize {
+        if !self.feed(block) {
+            return 0;
         }
+        let mut taken = 0;
+        for slot in out.iter_mut() {
+            match self.translated.pop() {
+                Ok(sample) => {
+                    *slot = sample;
+                    taken += 1;
+                }
+                Err(_) => break,
+            }
+        }
+        taken
     }
 }
 
@@ -626,15 +686,15 @@ pub struct Link {
     rate: Arc<AtomicU32>,
 }
 
-/// A connected tap and link for one live session.
-pub fn tap(translator: &Translator) -> (Tap, Link) {
+/// A connected tap and link for one direction of one session.
+pub fn tap(active: Arc<AtomicBool>) -> (Tap, Link) {
     // Two seconds of voice to send, and half a minute of translation to play.
     let (clean_in, clean_out) = rtrb::RingBuffer::new(96_000 * 2);
     let (translated_in, translated_out) = rtrb::RingBuffer::new(96_000 * 30);
     let rate = Arc::new(AtomicU32::new(0));
     (
         Tap {
-            active: translator.active.clone(),
+            active,
             clean: clean_in,
             translated: translated_out,
             rate: rate.clone(),
@@ -647,15 +707,16 @@ pub fn tap(translator: &Translator) -> (Tap, Link) {
     )
 }
 
-/// Runs for as long as the live session; connects to Gemini only while translation is on.
-pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
+/// Runs for as long as its session; connects to Gemini only while its direction is on.
+pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>, side: Side) {
     let translator = app.state::<Arc<Translator>>().inner().clone();
+    let active = translator.flag(side);
     let mut session: Option<(Session, String)> = None;
     let mut resume: Option<String> = None;
     let mut retry_at = Instant::now();
     let mut failures = 0u32;
     let mut pending: Vec<f32> = Vec::with_capacity(CHUNK * 2);
-    // The session sets the output rate once its devices are open.
+    // The session sets the device rate once its devices are open.
     let rate = loop {
         let rate = link.rate.load(Ordering::Acquire);
         if rate > 0 || stop.load(Ordering::Acquire) {
@@ -670,7 +731,7 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
     let mut up = StreamingMono::new(RECEIVE_RATE, rate).expect("rates");
 
     while !stop.load(Ordering::Acquire) {
-        if !translator.active.load(Ordering::Acquire) {
+        if !active.load(Ordering::Acquire) {
             if session.take().is_some() {
                 resume = None;
             }
@@ -679,7 +740,7 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
             thread::sleep(Duration::from_millis(30));
             continue;
         }
-        let target = app.state::<crate::AppState>().settings().translate_to;
+        let (_, target) = languages(&app.state::<crate::AppState>().settings(), side);
         // A new target language needs a new session.
         if session.as_ref().is_some_and(|(_, t)| *t != target) {
             session = None;
@@ -691,24 +752,24 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
                 thread::sleep(Duration::from_millis(30));
                 continue;
             }
-            translator.status(&app, Status::Connecting, None);
+            translator.status(&app, side, Status::Connecting, None);
             let Some(key) = translator.key() else {
-                translator.set_on(&app, false);
+                translator.set_on(&app, side, false);
                 continue;
             };
             match Session::open(&key, &target, resume.as_deref()) {
                 Ok(opened) => {
                     failures = 0;
                     session = Some((opened, target.clone()));
-                    translator.status(&app, Status::On, None);
+                    translator.status(&app, side, Status::On, None);
                 }
                 Err(error) => {
                     failures += 1;
                     resume = None;
                     let wait = [2, 4, 8, 15][(failures as usize - 1).min(3)];
                     retry_at = Instant::now() + Duration::from_secs(wait);
-                    log::warn!("Translate: {error:#}");
-                    translator.status(&app, Status::Error, Some(format!("{error}")));
+                    log::warn!("Translate ({side:?}): {error:#}");
+                    translator.status(&app, side, Status::Error, Some(format!("{error}")));
                     continue;
                 }
             }
@@ -717,7 +778,7 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
             continue;
         };
         let mut broken = None;
-        // Clean voice in, 100 ms at a time.
+        // Voice in, 100 ms at a time.
         while let Ok(sample) = link.clean.pop() {
             down.push(sample, |s| pending.push(s));
         }
@@ -741,6 +802,7 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
                     if message.heard.is_some() || message.said.is_some() {
                         translator.caption(
                             &app,
+                            side,
                             message.heard.as_deref(),
                             message.said.as_deref(),
                             message.language,
@@ -762,11 +824,11 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
             }
         }
         if let Some(error) = broken {
-            log::info!("Translate: connection ended ({error}); reconnecting");
+            log::info!("Translate ({side:?}): connection ended ({error}); reconnecting");
             session = None;
             retry_at = Instant::now();
         }
-        translator.tick(&app);
+        translator.tick(&app, side);
         thread::sleep(Duration::from_millis(10));
     }
 }

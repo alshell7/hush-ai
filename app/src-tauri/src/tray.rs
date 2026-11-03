@@ -14,19 +14,80 @@ const TRAY: &str = "hush";
 pub struct TrayItems {
     toggle: CheckMenuItem<Wry>,
     translate: CheckMenuItem<Wry>,
+    listen: CheckMenuItem<Wry>,
     /// When the widget last hid because it lost focus. A click on the icon right after
     /// that must not show it again.
     hidden_at: Mutex<Option<Instant>>,
 }
 
+/// The tray icon. macOS tints its template icons for the menu bar itself; Windows and Linux
+/// get a pair drawn for the taskbar's theme, so the icon is easy to see on either.
 fn icon(on: bool) -> Image<'static> {
-    let bytes: &'static [u8] = match (cfg!(target_os = "macos"), on) {
-        (true, true) => include_bytes!("../icons/tray-on-template.png"),
-        (true, false) => include_bytes!("../icons/tray-off-template.png"),
-        (false, true) => include_bytes!("../icons/tray-on.png"),
-        (false, false) => include_bytes!("../icons/tray-off.png"),
+    let bytes: &'static [u8] = if cfg!(target_os = "macos") {
+        if on {
+            include_bytes!("../icons/tray-on-template.png")
+        } else {
+            include_bytes!("../icons/tray-off-template.png")
+        }
+    } else {
+        match (light_taskbar(), on) {
+            (true, true) => include_bytes!("../icons/tray-on-light.png"),
+            (true, false) => include_bytes!("../icons/tray-off-light.png"),
+            (false, true) => include_bytes!("../icons/tray-on-dark.png"),
+            (false, false) => include_bytes!("../icons/tray-off-dark.png"),
+        }
     };
     Image::from_bytes(bytes).expect("tray icon")
+}
+
+/// Windows: whether the taskbar uses the light theme. Elsewhere panels are usually dark.
+#[cfg(target_os = "windows")]
+fn light_taskbar() -> bool {
+    use windows::core::w;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+    let mut value: u32 = 0;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    // SAFETY: a DWORD read into a local of the size we pass.
+    let result = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+            w!("SystemUsesLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut std::ffi::c_void),
+            Some(&mut size),
+        )
+    };
+    result == ERROR_SUCCESS && value == 1
+}
+
+#[cfg(not(target_os = "windows"))]
+fn light_taskbar() -> bool {
+    false
+}
+
+/// Windows: redraw the icon when the taskbar switches between light and dark.
+pub fn follow_theme(app: &AppHandle) {
+    if !cfg!(target_os = "windows") {
+        return;
+    }
+    let app = app.clone();
+    let _ = std::thread::Builder::new()
+        .name("hush-tray-theme".into())
+        .spawn(move || {
+            let mut light = light_taskbar();
+            loop {
+                std::thread::sleep(Duration::from_secs(3));
+                let now = light_taskbar();
+                if now != light {
+                    light = now;
+                    let status = app.state::<Arc<Engine>>().state().status;
+                    update(&app, status);
+                }
+            }
+        });
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
@@ -46,6 +107,14 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         false,
         None::<&str>,
     )?;
+    let listen = CheckMenuItem::with_id(
+        app,
+        "listen",
+        "Translate their voice",
+        true,
+        false,
+        None::<&str>,
+    )?;
     let open = MenuItem::with_id(app, "open", "Open Hush AI", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Hush AI", true, None::<&str>)?;
     let menu = Menu::with_items(
@@ -53,6 +122,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         &[
             &toggle,
             &translate,
+            &listen,
             &open,
             &PredefinedMenuItem::separator(app)?,
             &quit,
@@ -71,8 +141,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
             "translate" => {
                 let translator = app.state::<Arc<crate::translate::Translator>>();
-                let on = translator.info().on;
-                crate::set_translate(app, !on);
+                let on = translator.is_on(crate::conversation::Side::Me);
+                crate::set_translate(app, crate::conversation::Side::Me, !on);
+            }
+            "listen" => {
+                let translator = app.state::<Arc<crate::translate::Translator>>();
+                let on = translator.is_on(crate::conversation::Side::Them);
+                crate::set_translate(app, crate::conversation::Side::Them, !on);
             }
             "open" => crate::show_main(app),
             "quit" => app.exit(0),
@@ -84,7 +159,16 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 button_state: MouseButtonState::Up,
                 rect,
                 ..
-            } => toggle_widget(tray.app_handle(), rect),
+            } => {
+                let app = tray.app_handle();
+                if app.state::<crate::AppState>().settings().overlay
+                    == crate::settings::Overlay::Notch
+                {
+                    crate::notch::toggle_pin(app);
+                } else {
+                    toggle_widget(app, rect);
+                }
+            }
             // Windows users double-click tray icons to open the app.
             TrayIconEvent::DoubleClick {
                 button: MouseButton::Left,
@@ -96,6 +180,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     app.manage(TrayItems {
         toggle,
         translate,
+        listen,
         hidden_at: Mutex::new(None),
     });
     Ok(())
@@ -119,10 +204,11 @@ pub fn update(app: &AppHandle, status: Status) {
     }
 }
 
-/// Show whether Live Translate is on in the tray menu.
-pub fn update_translate(app: &AppHandle, on: bool) {
+/// Show which directions of Live Translate are on in the tray menu.
+pub fn update_translate(app: &AppHandle, me: bool, them: bool) {
     if let Some(items) = app.try_state::<TrayItems>() {
-        let _ = items.translate.set_checked(on);
+        let _ = items.translate.set_checked(me);
+        let _ = items.listen.set_checked(them);
     }
 }
 

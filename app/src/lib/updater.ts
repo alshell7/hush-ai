@@ -14,9 +14,10 @@ export async function checkForUpdate(manual = false): Promise<"none" | "availabl
     const update = await check();
     if (!update) return "none";
     pending = update;
-    setStore({ update: { version: update.version, state: "downloading" } });
+    const notes = update.body ?? null;
+    setStore({ update: { version: update.version, state: "downloading", notes } });
     await update.download();
-    setStore({ update: { version: update.version, state: "ready" } });
+    setStore({ update: { version: update.version, state: "ready", notes } });
     return "available";
   } catch (error) {
     if (manual) throw error;

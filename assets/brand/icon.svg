@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="base" x1="0.05" y1="0.02" x2="0.95" y2="0.98">
-      <stop offset="0" stop-color="#FFC4B0"/>
-      <stop offset="0.34" stop-color="#FFE0A6"/>
-      <stop offset="0.66" stop-color="#C9F2D4"/>
-      <stop offset="1" stop-color="#9BE6E0"/>
+      <stop offset="0" stop-color="#FF9A7C"/>
+      <stop offset="0.36" stop-color="#FFC45A"/>
+      <stop offset="0.68" stop-color="#6FD9AA"/>
+      <stop offset="1" stop-color="#37BDB8"/>
     </linearGradient>
     <radialGradient id="glowTop" cx="0.26" cy="0.18" r="0.6">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.8"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="glowRose" cx="0.9" cy="0.12" r="0.45">
@@ -32,6 +32,7 @@
   <rect x="64" y="64" width="896" height="896" rx="216" fill="url(#glowRose)"/>
   <rect x="64" y="64" width="896" height="896" rx="216" fill="url(#glowTop)"/>
   <rect x="66" y="66" width="892" height="892" rx="214" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="215.5" fill="none" stroke="#1E1B18" stroke-opacity="0.16" stroke-width="3"/>
   <ellipse cx="512" cy="766" rx="250" ry="32" fill="url(#shadow)"/>
   <path d="M232 628C232 452 356 314 512 314C668 314 792 452 792 628C792 716 716 760 512 760C308 760 232 716 232 628Z" fill="url(#mochi)"/>
   <path d="M300 470C336 400 410 356 486 350" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" opacity="0.95"/>

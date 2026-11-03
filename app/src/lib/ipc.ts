@@ -138,6 +138,17 @@ const sim = {
     audioPriority: true,
     checkUpdates: true,
     trayHintShown: true,
+    translateFrom: "en",
+    translateTo: "es",
+    translateAsk: true,
+    translateHistory: true,
+    listen: true,
+    listenClean: "full",
+    listenVoice: "voiceOver",
+    listenOutput: null,
+    talkMode: "both",
+    overlay: "notch",
+    hideFromCapture: false,
   } as Settings,
   engine: {
     status: "on",
@@ -185,8 +196,11 @@ function setEngine(patch: Partial<EngineState>) {
   emit("engine", sim.engine);
 }
 
+/** The simulated settings (browser previews). */
+export const simSettings = () => sim.settings;
+
 export const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
-  snapshot: () => ({ settings: sim.settings, models: sim.models, engine: sim.engine, platform: guessPlatform(), version: "1.1.0" }),
+  snapshot: () => ({ settings: sim.settings, models: sim.models, engine: sim.engine, platform: guessPlatform(), version: "1.2.0" }),
   app_ready: () => undefined,
   devices: () => ({
     inputs: [

@@ -1,9 +1,12 @@
 //! Hush AI desktop app: Tauri commands, windows, tray and start-up.
 mod audio;
 mod calendar;
+mod conversation;
 mod engine;
+mod listen;
 mod mictest;
 mod model;
+mod notch;
 mod settings;
 mod studio;
 mod translate;
@@ -97,18 +100,22 @@ pub fn show_main(app: &AppHandle) {
 /// The shortcut that turns Live Translate on and off during a call.
 pub const TRANSLATE_SHORTCUT: &str = "CommandOrControl+Alt+T";
 
-/// Turn Live Translate on or off. It works with noise cancellation off too: the live session
-/// then passes the microphone through unchanged. Without an API key it opens Hush at the key
-/// setup instead.
-pub fn set_translate(app: &AppHandle, on: bool) {
+/// Turn one direction of Live Translate on or off. Your voice works with noise cancellation
+/// off too: the live session then passes the microphone through unchanged. Their voice comes
+/// from the listener. Without an API key it opens Hush at the key setup instead.
+pub fn set_translate(app: &AppHandle, side: conversation::Side, on: bool) {
     let translator = app.state::<Arc<translate::Translator>>();
     if on && !translator.info().has_key {
         show_main(app);
         let _ = app.emit("translate-setup", ());
-        translator.set_on(app, false);
+        translator.set_on(app, side, false);
         return;
     }
-    translator.set_on(app, on);
+    translator.set_on(app, side, on);
+    if side == conversation::Side::Them {
+        app.state::<Arc<listen::Listener>>().refresh();
+        return;
+    }
     let engine = app.state::<Arc<Engine>>().inner().clone();
     let settings = app.state::<AppState>().settings();
     if settings.enabled || !settings.onboarded {
@@ -123,13 +130,39 @@ pub fn set_translate(app: &AppHandle, on: bool) {
     }
 }
 
+/// Turn the conversation on or off: the directions the Talk mode names (yours, theirs or both).
+pub fn set_talk(app: &AppHandle, on: bool) {
+    use conversation::Side;
+    let mode = app.state::<AppState>().settings().talk_mode;
+    let (me, them) = match mode {
+        settings::TalkMode::Me => (on, false),
+        settings::TalkMode::Them => (false, on),
+        settings::TalkMode::Both => (on, on),
+    };
+    let translator = app.state::<Arc<translate::Translator>>();
+    if translator.is_on(Side::Me) != me {
+        set_translate(app, Side::Me, me);
+    }
+    if translator.is_on(Side::Them) != them {
+        set_translate(app, Side::Them, them);
+    }
+}
+
+/// Whether any direction of the conversation is on.
+pub fn talking(app: &AppHandle) -> bool {
+    let translator = app.state::<Arc<translate::Translator>>();
+    translator.is_on(conversation::Side::Me) || translator.is_on(conversation::Side::Them)
+}
+
 /// Turn noise cancellation on or off, and remember it. While Live Translate is on, turning
 /// noise cancellation off keeps a pass-through session for the translation.
 pub fn set_enabled(app: &AppHandle, on: bool) {
     let settings = app.state::<AppState>().update(|s| s.enabled = on);
     let _ = app.emit("settings", &settings);
     let engine = app.state::<Arc<Engine>>().inner().clone();
-    let translating = app.state::<Arc<translate::Translator>>().info().on;
+    let translating = app
+        .state::<Arc<translate::Translator>>()
+        .is_on(conversation::Side::Me);
     if on || translating {
         app.state::<MicTest>().stop_monitor();
         std::thread::spawn(move || engine.start());
@@ -211,6 +244,24 @@ fn update_settings(app: AppHandle, patch: serde_json::Value) -> Reply<Settings> 
         || before.quality != saved.quality
         || before.threads != saved.threads
         || before.audio_priority != saved.audio_priority;
+    if before.listen != saved.listen
+        || before.listen_clean != saved.listen_clean
+        || before.listen_voice != saved.listen_voice
+        || before.listen_output != saved.listen_output
+    {
+        app.state::<Arc<listen::Listener>>().refresh();
+    }
+    if before.overlay != saved.overlay
+        || before.hide_from_capture != saved.hide_from_capture
+        || before.onboarded != saved.onboarded
+    {
+        notch::apply(&app);
+        if saved.overlay == settings::Overlay::Notch {
+            if let Some(widget) = app.get_webview_window("widget") {
+                let _ = widget.hide();
+            }
+        }
+    }
     if before.calendar_sync != saved.calendar_sync {
         app.state::<Arc<Calendar>>().refresh();
     }
@@ -533,17 +584,72 @@ async fn translate_set_key(app: AppHandle, key: String) -> Reply<translate::Tran
     .map_err(|e| e.to_string())
 }
 
-/// Kept translations, oldest first.
+/// Every conversation, newest first, without its lines.
 #[tauri::command]
-fn translate_history(
-    translator: tauri::State<Arc<translate::Translator>>,
-) -> Vec<translate::Entry> {
-    translator.history()
+fn conversations_list(
+    conversations: tauri::State<conversation::Conversations>,
+) -> Vec<conversation::Summary> {
+    conversations.list()
 }
 
 #[tauri::command]
-fn translate_history_clear(translator: tauri::State<Arc<translate::Translator>>) {
-    translator.clear_history();
+fn conversation_get(
+    conversations: tauri::State<conversation::Conversations>,
+    id: i64,
+) -> Option<conversation::Thread> {
+    conversations.get(id)
+}
+
+#[tauri::command]
+fn conversation_star(
+    conversations: tauri::State<conversation::Conversations>,
+    id: i64,
+    starred: bool,
+) -> Option<conversation::Summary> {
+    conversations.star(id, starred)
+}
+
+#[tauri::command]
+fn conversation_rename(
+    conversations: tauri::State<conversation::Conversations>,
+    id: i64,
+    title: Option<String>,
+) -> Option<conversation::Summary> {
+    conversations.rename(id, title)
+}
+
+#[tauri::command]
+fn conversation_delete(conversations: tauri::State<conversation::Conversations>, id: i64) {
+    conversations.delete(id);
+}
+
+#[tauri::command]
+fn conversations_clear(conversations: tauri::State<conversation::Conversations>) {
+    conversations.clear();
+}
+
+/// Write conversations (all when `ids` is empty) as "md", "txt" or "json".
+#[tauri::command]
+fn conversations_export(
+    conversations: tauri::State<conversation::Conversations>,
+    ids: Vec<i64>,
+    format: String,
+    path: String,
+) -> Reply<()> {
+    conversations
+        .export(&ids, &format, std::path::Path::new(&path))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn listen_info(listener: tauri::State<Arc<listen::Listener>>) -> listen::ListenInfo {
+    listener.info()
+}
+
+/// Their voice's level, 0..1.
+#[tauri::command]
+fn listen_level(listener: tauri::State<Arc<listen::Listener>>) -> f32 {
+    f32::from_bits(listener.level.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 #[tauri::command]
@@ -551,9 +657,26 @@ fn translate_remove_key(app: AppHandle) -> translate::TranslateInfo {
     app.state::<Arc<translate::Translator>>().remove_key(&app)
 }
 
+/// Your voice's direction (the self-test and older windows).
 #[tauri::command]
 fn translate_set(app: AppHandle, on: bool) -> translate::TranslateInfo {
-    set_translate(&app, on);
+    set_translate(&app, conversation::Side::Me, on);
+    app.state::<Arc<translate::Translator>>().info()
+}
+
+#[tauri::command]
+fn translate_set_side(
+    app: AppHandle,
+    side: conversation::Side,
+    on: bool,
+) -> translate::TranslateInfo {
+    set_translate(&app, side, on);
+    app.state::<Arc<translate::Translator>>().info()
+}
+
+#[tauri::command]
+fn talk_set(app: AppHandle, on: bool) -> translate::TranslateInfo {
+    set_talk(&app, on);
     app.state::<Arc<translate::Translator>>().info()
 }
 
@@ -646,8 +769,8 @@ pub fn run() {
                 .with_handler(|app, _shortcut, event| {
                     use tauri_plugin_global_shortcut::ShortcutState;
                     if event.state() == ShortcutState::Pressed {
-                        let on = app.state::<Arc<translate::Translator>>().info().on;
-                        set_translate(app, !on);
+                        let on = talking(app);
+                        set_talk(app, !on);
                     }
                 })
                 .build(),
@@ -678,6 +801,14 @@ pub fn run() {
             Studio::startup(handle);
             app.manage(Calendar::new(handle));
             app.manage(Arc::new(translate::Translator::new(handle)));
+            app.manage(conversation::Conversations::new(handle));
+            app.manage(Arc::new(listen::Listener::new()));
+            {
+                let app = handle.clone();
+                std::thread::Builder::new()
+                    .name("hush-listen".into())
+                    .spawn(move || listen::run(app))?;
+            }
             {
                 use tauri_plugin_global_shortcut::GlobalShortcutExt;
                 // Another app may own the combination already; Hush works without it.
@@ -688,6 +819,9 @@ pub fn run() {
             let engine = Engine::new(handle.clone());
             app.manage(engine.clone());
             tray::create(handle)?;
+            tray::follow_theme(handle);
+            notch::setup(handle)?;
+            notch::apply(handle);
             if start {
                 std::thread::spawn(move || engine.start());
             }
@@ -737,9 +871,20 @@ pub fn run() {
             translate_languages,
             translate_set_key,
             translate_remove_key,
-            translate_history,
-            translate_history_clear,
+            conversations_list,
+            conversation_get,
+            conversation_star,
+            conversation_rename,
+            conversation_delete,
+            conversations_clear,
+            conversations_export,
+            listen_info,
+            listen_level,
+            notch::notch_region,
+            notch::notch_geometry,
             translate_set,
+            translate_set_side,
+            talk_set,
             translate_open_keys,
             calendar_info,
             calendar_check,
@@ -763,6 +908,7 @@ pub fn run() {
             RunEvent::Reopen { .. } => show_main(app),
             RunEvent::Exit => {
                 app.state::<Arc<Engine>>().shutdown();
+                app.state::<conversation::Conversations>().flush(true);
                 #[cfg(target_os = "linux")]
                 audio::pulse::remove();
             }

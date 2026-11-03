@@ -276,6 +276,20 @@ impl Calendar {
         Ok(())
     }
 
+    /// The timed meeting happening now (from five minutes before to five after), preferring one
+    /// with a call link. Conversations take their title from it.
+    pub fn current(&self) -> Option<Meeting> {
+        let inner = self.inner.lock().unwrap();
+        let now = Utc::now().timestamp_millis();
+        let margin = 5 * 60_000;
+        inner
+            .merged
+            .iter()
+            .filter(|m| !m.all_day && m.start - margin <= now && now < m.end + margin)
+            .max_by_key(|m| (m.app.is_some(), m.start))
+            .cloned()
+    }
+
     pub fn info(&self) -> CalendarInfo {
         let inner = self.inner.lock().unwrap();
         let now = Utc::now().timestamp_millis();

@@ -2,22 +2,22 @@
 // one title bar.
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { CalendarIcon, GearIcon, PowerIcon, TranslateIcon, WaveIcon } from "../components/Icons";
+import { CalendarIcon, ChatIcon, GearIcon, PowerIcon, WaveIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
-import { useFeatures } from "../lib/features";
+import { useFeatures, talking } from "../lib/features";
 import { useApp } from "../lib/store";
 import { useNow } from "../lib/time";
-import { installUpdate } from "../lib/updater";
+import { ReleaseNotes } from "../components/ReleaseNotes";
 import { Live } from "./Home";
 import { Meetings } from "./Meetings";
 import { SettingsPanel } from "./Settings";
 import { Studio } from "./Studio";
-import { Translate } from "./Translate";
+import { Talk } from "./Talk";
 
 const TABS = [
   { id: "live", label: "Live", icon: PowerIcon },
-  { id: "translate", label: "Translate", icon: TranslateIcon },
+  { id: "translate", label: "Talk", icon: ChatIcon },
   { id: "studio", label: "Studio", icon: WaveIcon },
   { id: "meetings", label: "Meetings", icon: CalendarIcon },
 ] as const;
@@ -26,12 +26,13 @@ type Tab = (typeof TABS)[number]["id"];
 export function Main() {
   const [tab, setTab] = useState<Tab>("live");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const update = useApp((s) => s.update);
   const studio = useFeatures((s) => s.studio);
   const meetings = useFeatures((s) => s.calendar?.meetings);
   const now = useNow(30_000);
   const translateSetup = useFeatures((s) => s.translateSetup);
-  const translating = useFeatures((s) => s.translate?.on);
+  const translating = useFeatures((s) => talking(s.translate));
   // The tray menu or the shortcut asked for the Gemini key setup.
   useEffect(() => {
     if (translateSetup) setTab("translate");
@@ -94,9 +95,9 @@ export function Main() {
               exit={{ opacity: 0 }}
               className="btn btn-opal btn-sm no-drag"
               disabled={update.state !== "ready"}
-              onClick={() => installUpdate()}
+              onClick={() => setNotesOpen(true)}
             >
-              {update.state === "ready" ? `Restart to update to ${update.version}` : `Downloading ${update.version}…`}
+              {update.state === "ready" ? `Update to ${update.version}` : `Downloading ${update.version}…`}
             </motion.button>
           )}
         </AnimatePresence>
@@ -116,7 +117,7 @@ export function Main() {
             transition={{ duration: 0.24, ease: [0.2, 0.9, 0.1, 1] }}
           >
             {tab === "live" && <Live onOpenMeetings={() => setTab("meetings")} onOpenTranslate={() => setTab("translate")} />}
-            {tab === "translate" && <Translate />}
+            {tab === "translate" && <Talk />}
             {tab === "studio" && <Studio />}
             {tab === "meetings" && <Meetings />}
           </motion.div>
@@ -124,6 +125,7 @@ export function Main() {
       </div>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ReleaseNotes openUpdate={notesOpen} onUpdateClosed={() => setNotesOpen(false)} />
     </div>
   );
 }

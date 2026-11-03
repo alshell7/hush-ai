@@ -16,8 +16,11 @@ render("icon.svg", 1024, new URL("../../assets/brand/icon.png", import.meta.url)
 for (const [svg, png] of [
   ["tray-on.svg", "tray-on-template.png"],
   ["tray-off.svg", "tray-off-template.png"],
-  ["tray-on-color.svg", "tray-on.png"],
-  ["tray-off-color.svg", "tray-off.png"],
+  // Windows and Linux: one pair for light taskbars, one for dark.
+  ["tray-on-light.svg", "tray-on-light.png"],
+  ["tray-off-light.svg", "tray-off-light.png"],
+  ["tray-on-dark.svg", "tray-on-dark.png"],
+  ["tray-off-dark.svg", "tray-off-dark.png"],
 ]) {
   render(svg, 64, new URL(png, out));
 }

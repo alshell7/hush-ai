@@ -61,26 +61,42 @@ async function selftestTranslate(log: (line: string) => Promise<unknown>) {
     const end = Date.now() + 30_000;
     while (Date.now() < end) {
       const now = info as TranslateInfo | null;
-      if (now?.status === "on" || now?.status === "error") break;
+      if (now?.me.status === "on" || now?.me.status === "error") break;
       await wait(100);
     }
     const now = info as TranslateInfo | null;
-    if (now?.status !== "on") throw new Error(`translate: ${now?.message ?? now?.status ?? "no state"}`);
+    if (now?.me.status !== "on") throw new Error(`translate: ${now?.me.message ?? now?.me.status ?? "no state"}`);
     await log("translate: live session open with Google");
     await wait(3000);
     const after = (info as TranslateInfo | null)!;
-    await log(`translate: still ${after.status}, captions ${after.heard.length}/${after.said.length} chars`);
+    await log(`translate: still ${after.me.status}, captions ${after.me.original.length}/${after.me.translated.length} chars`);
     // Live Translate keeps going with noise cancellation off: the session passes the voice through.
     await api.setEnabled(false);
     await wait(4000);
     const bypass = await api.snapshot();
     const still = (info as TranslateInfo | null)!;
-    if (still.status !== "on" || bypass.engine.status !== "on") throw new Error(`translate without noise cancellation: translate ${still.status}, session ${bypass.engine.status}`);
+    if (still.me.status !== "on" || bypass.engine.status !== "on") throw new Error(`translate without noise cancellation: translate ${still.me.status}, session ${bypass.engine.status}`);
     await log("translate: still on with noise cancellation off (pass-through session)");
     await features.translateSet(false);
     await wait(1500);
     await log(`translate off: session ${(await api.snapshot()).engine.status}`);
     await api.setEnabled(true);
+    // Their voice: Hush AI Speaker, or listening along to the speakers.
+    const listen = await features.listenInfo();
+    await log(`listen: mode ${listen.mode}${listen.device ? ` (${listen.device})` : ""}, running ${listen.running}`);
+    if (listen.mode !== "none") {
+      await features.translateSetSide("them", true);
+      const until = Date.now() + 30_000;
+      while (Date.now() < until && !["on", "error"].includes((info as TranslateInfo | null)?.them.status ?? "")) await wait(100);
+      const them = (info as TranslateInfo | null)!.them;
+      if (them.status !== "on") throw new Error(`their voice: ${them.message ?? them.status}`);
+      const running = (await features.listenInfo()).running;
+      if (!running) throw new Error("their voice: the listener is not running");
+      await log("their voice: live session open with Google, listener running");
+      await features.translateSetSide("them", false);
+    }
+    const list = await features.conversationsList();
+    await log(`conversations: ${list.length} kept`);
   } finally {
     stop();
     const removed = await features.translateRemoveKey();

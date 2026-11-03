@@ -35,6 +35,59 @@ impl Quality {
     }
 }
 
+/// How much of their background noise Hush removes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Clean {
+    Off,
+    /// Up to 12 dB: quieter rooms, natural sound.
+    Light,
+    /// All it can.
+    Full,
+}
+
+impl Clean {
+    /// DeepFilterNet's attenuation limit in dB; `None` when off.
+    pub fn limit(self) -> Option<f32> {
+        match self {
+            Self::Off => None,
+            Self::Light => Some(12.0),
+            Self::Full => Some(100.0),
+        }
+    }
+}
+
+/// What you hear while their voice is translated (with Hush AI Speaker).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Hear {
+    /// Their own voice; the translation shows as captions.
+    Original,
+    /// Their voice turned down while the translation speaks over it, like an interpreter.
+    VoiceOver,
+    /// Only the translated voice.
+    Translation,
+}
+
+/// Which directions the conversation switch (and its shortcut) turns on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TalkMode {
+    /// Your voice, translated for them.
+    Me,
+    /// Their voice, translated for you.
+    Them,
+    Both,
+}
+
+/// Quick controls: the tray widget, or the notch at the top of the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Overlay {
+    Widget,
+    Notch,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -70,8 +123,19 @@ pub struct Settings {
     pub translate_to: String,
     /// Ask before Live Translate starts sending your voice to Google.
     pub translate_ask: bool,
-    /// Keep a history of translations on this computer.
+    /// Keep conversations (both languages) on this computer.
     pub translate_history: bool,
+    /// Hush AI Speaker: clean their voice before you hear it.
+    pub listen: bool,
+    pub listen_clean: Clean,
+    /// What you hear while their voice is translated.
+    pub listen_voice: Hear,
+    /// Where Hush plays their voice; `None` follows the system default.
+    pub listen_output: Option<String>,
+    pub talk_mode: TalkMode,
+    pub overlay: Overlay,
+    /// Keep Hush's windows out of screenshots, screen sharing and recordings.
+    pub hide_from_capture: bool,
 }
 
 impl Default for Settings {
@@ -101,6 +165,13 @@ impl Default for Settings {
             translate_to: "es".into(),
             translate_ask: true,
             translate_history: true,
+            listen: true,
+            listen_clean: Clean::Full,
+            listen_voice: Hear::VoiceOver,
+            listen_output: None,
+            talk_mode: TalkMode::Both,
+            overlay: Overlay::Notch,
+            hide_from_capture: false,
         }
     }
 }

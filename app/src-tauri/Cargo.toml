@@ -67,6 +67,10 @@ features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+# The notch window: above the menu bar, and the screen's camera notch.
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSWindow", "NSScreen", "NSGraphics"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSGeometry"] }
 
 [dev-dependencies]
 cpu-time = "1"

@@ -217,7 +217,7 @@ impl Engine {
             .state::<Arc<crate::translate::Translator>>()
             .inner()
             .clone();
-        let (tap, link) = crate::translate::tap(&translator);
+        let (tap, link) = crate::translate::tap(translator.flag(crate::conversation::Side::Me));
         audio.translate = Some(tap);
         if let Some(stop) = inner.translate_stop.take() {
             stop.store(true, Ordering::Release);
@@ -227,7 +227,9 @@ impl Engine {
         let worker_app = app.clone();
         let _ = thread::Builder::new()
             .name("hush-translate".into())
-            .spawn(move || crate::translate::run(worker_app, link, stop));
+            .spawn(move || {
+                crate::translate::run(worker_app, link, stop, crate::conversation::Side::Me)
+            });
         inner.state.status = Status::Starting;
         inner.state.message = notice;
         self.closed.store(false, Ordering::Relaxed);
@@ -359,7 +361,9 @@ impl Engine {
                 return;
             };
             let wanted = app.state::<crate::AppState>().settings().enabled
-                || app.state::<Arc<crate::translate::Translator>>().info().on;
+                || app
+                    .state::<Arc<crate::translate::Translator>>()
+                    .is_on(crate::conversation::Side::Me);
             let state = engine.state();
             if wanted && state.status == Status::Error && !engine.is_running() {
                 engine.start();

@@ -12,7 +12,8 @@ export interface AppStore {
   devices: Devices | null;
   platform: Platform;
   version: string;
-  update: { version: string; state: "available" | "downloading" | "ready" } | null;
+  /** A newer version: its notes come from the release. */
+  update: { version: string; state: "available" | "downloading" | "ready"; notes?: string | null } | null;
 }
 
 let state: AppStore = {

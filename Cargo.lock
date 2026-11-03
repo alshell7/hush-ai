@@ -4423,7 +4423,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
 name = "hush-ai"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -4436,6 +4436,9 @@ dependencies = [
  "libc",
  "log",
  "memory-stats",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "rrule",
  "rtrb",
  "serde",
@@ -4460,7 +4463,7 @@ dependencies = [
 
 [[package]]
 name = "hush-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "burn",
  "burn-cubecl",

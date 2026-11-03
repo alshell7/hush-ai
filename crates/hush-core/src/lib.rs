@@ -75,6 +75,7 @@ pub mod resample;
 #[cfg(feature = "trace")]
 pub mod trace;
 pub mod virtual_mic;
+pub mod virtual_speaker;
 mod weights;
 mod workers;
 

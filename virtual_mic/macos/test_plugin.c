@@ -1,8 +1,11 @@
-// Loads HushMic.driver without Core Audio and checks its device properties and audio path.
+// Loads HushMic.driver without Core Audio and checks the properties and audio paths of its two
+// devices: Hush AI Microphone (2, stream 3) and Hush AI Speaker (4, stream 5).
 //   clang -framework CoreAudio -framework CoreFoundation -o target/test_plugin virtual_mic/macos/test_plugin.c
 //   target/test_plugin target/HushMic.driver/Contents/MacOS/HushMic
 #include <CoreAudio/AudioServerPlugIn.h>
 #include <dlfcn.h>
+#include <mach/mach_time.h>
+#include <math.h>
 #include <fcntl.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -32,6 +35,33 @@ static UInt32 Count(AudioObjectID obj, AudioObjectPropertySelector sel, AudioObj
     return size / sizeof(AudioObjectID);
 }
 
+static const char *Name(AudioObjectID obj) {
+    static char text[64];
+    AudioObjectPropertyAddress a = {kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+    CFStringRef value = NULL;
+    UInt32 size = 0;
+    CHECK((*driver)->GetPropertyData(driver, obj, 0, &a, 0, NULL, sizeof(value), &size, &value) == 0);
+    CHECK(CFStringGetCString(value, text, sizeof(text), kCFStringEncodingUTF8));
+    CFRelease(value);
+    return text;
+}
+
+static AudioObjectID FromUID(const char *uid) {
+    AudioObjectPropertyAddress a = {kAudioPlugInPropertyTranslateUIDToDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+    CFStringRef q = CFStringCreateWithCString(NULL, uid, kCFStringEncodingUTF8);
+    AudioObjectID dev = 0;
+    UInt32 size = 0;
+    CHECK((*driver)->GetPropertyData(driver, kAudioObjectPlugInObject, 0, &a, sizeof(q), &q, sizeof(dev), &size, &dev) == 0);
+    CFRelease(q);
+    return dev;
+}
+
+static Boolean WillDo(AudioObjectID dev, UInt32 op) {
+    Boolean willDo = false, inPlace = false;
+    CHECK((*driver)->WillDoIOOperation(driver, dev, 0, op, &willDo, &inPlace) == 0);
+    return willDo;
+}
+
 static void Read(float *out, UInt32 frames, Float64 time) {
     cycle.mInputTime.mSampleTime = time;
     CHECK((*driver)->DoIOOperation(driver, 2, 3, 0, kAudioServerPlugInIOOperationReadInput, frames, &cycle, out, NULL) == 0);
@@ -57,8 +87,11 @@ int main(int argc, char **argv) {
     CHECK(driver);
     CHECK((*driver)->Initialize(driver, &host) == 0);
 
-    // One input device, no output streams, 48 kHz mono float32.
-    CHECK(Count(kAudioObjectPlugInObject, kAudioPlugInPropertyDeviceList, kAudioObjectPropertyScopeGlobal) == 1);
+    // Two devices: the microphone and the speaker.
+    CHECK(Count(kAudioObjectPlugInObject, kAudioPlugInPropertyDeviceList, kAudioObjectPropertyScopeGlobal) == 2);
+    CHECK(FromUID("HushAIMicrophone_UID") == 2 && FromUID("HushAISpeaker_UID") == 4 && FromUID("x") == 0);
+
+    // The microphone: one input stream, no output streams, 48 kHz mono float32.
     AudioObjectPropertyAddress name = {kAudioObjectPropertyName, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
     CFStringRef value = NULL;
     UInt32 size = 0;
@@ -75,6 +108,7 @@ int main(int argc, char **argv) {
     AudioStreamBasicDescription format;
     CHECK((*driver)->GetPropertyData(driver, 3, 0, &fmt, 0, NULL, sizeof(format), &size, &format) == 0);
     CHECK(format.mSampleRate == 48000 && format.mChannelsPerFrame == 1 && format.mBitsPerChannel == 32);
+    CHECK(WillDo(2, kAudioServerPlugInIOOperationReadInput) && !WillDo(2, kAudioServerPlugInIOOperationWriteMix));
 
     // The app side: open the region the plug-in created and write a ramp.
     int fd = shm_open(HUSH_MIC_SHM_NAME, O_RDWR);
@@ -126,6 +160,60 @@ int main(int argc, char **argv) {
     CHECK((*driver)->GetZeroTimeStamp(driver, 2, 0, &t2, &h2, &seed) == 0);
     CHECK(t2 > t1 && h2 > h1);
     CHECK((*driver)->StopIO(driver, 2, 0) == 0);
+
+    // The speaker: one output stream, 48 kHz stereo float32, never the system (alert) device.
+    CHECK(strcmp(Name(4), "Hush AI Speaker") == 0);
+    CHECK(Count(4, kAudioDevicePropertyStreams, kAudioObjectPropertyScopeOutput) == 1);
+    CHECK(Count(4, kAudioDevicePropertyStreams, kAudioObjectPropertyScopeInput) == 0);
+    CHECK(GetU32(4, kAudioDevicePropertyDeviceCanBeDefaultDevice, kAudioObjectPropertyScopeOutput) == 1);
+    CHECK(GetU32(4, kAudioDevicePropertyDeviceCanBeDefaultSystemDevice, kAudioObjectPropertyScopeOutput) == 0);
+    CHECK(GetU32(5, kAudioStreamPropertyDirection, kAudioObjectPropertyScopeGlobal) == 0);
+    CHECK(GetU32(5, kAudioObjectPropertyOwner, kAudioObjectPropertyScopeGlobal) == 4);
+    CHECK((*driver)->GetPropertyData(driver, 5, 0, &fmt, 0, NULL, sizeof(format), &size, &format) == 0);
+    CHECK(format.mSampleRate == 48000 && format.mChannelsPerFrame == 2 && format.mBytesPerFrame == 8);
+    CHECK(WillDo(4, kAudioServerPlugInIOOperationWriteMix) && !WillDo(4, kAudioServerPlugInIOOperationReadInput));
+
+    // The app side of the speaker: the plug-in writes the mono mix, the app reads.
+    fd = shm_open(HUSH_SPEAKER_SHM_NAME, O_RDWR);
+    CHECK(fd >= 0);
+    HushSpeakerShared *speaker = mmap(NULL, sizeof(HushSpeakerShared), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    CHECK(speaker != MAP_FAILED);
+    CHECK(speaker->magic == HUSH_SPEAKER_MAGIC && speaker->capacity == HUSH_SPEAKER_CAPACITY &&
+          speaker->sample_rate == 48000);
+    CHECK((*driver)->StartIO(driver, 4, 0) == 0);
+    CHECK(GetU32(4, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal) == 1);
+    CHECK(GetU32(2, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal) == 0);
+    CHECK((*driver)->GetZeroTimeStamp(driver, 4, 0, &t1, &h1, &seed) == 0);
+    static float stereo[2 * (HUSH_SPEAKER_CAPACITY + 100)];
+    for (int i = 0; i < 512; i++) { stereo[2 * i] = V((float)i); stereo[2 * i + 1] = V(3.0f * (float)i); }
+    stereo[0] = NAN; stereo[1] = 0.0f;    // not finite: 0
+    stereo[2] = 4.0f; stereo[3] = 4.0f;   // too loud: 1
+    stereo[4] = INFINITY; stereo[5] = -INFINITY; // mix not a number: 0
+    uint64_t sw = atomic_load((_Atomic uint64_t *)&speaker->write_pos);
+    uint64_t before = mach_absolute_time();
+    CHECK((*driver)->DoIOOperation(driver, 4, 5, 0, kAudioServerPlugInIOOperationWriteMix, 512, &cycle, stereo, NULL) == 0);
+    CHECK(atomic_load((_Atomic uint64_t *)&speaker->write_pos) == sw + 512);
+    CHECK(speaker->write_frames == 512);
+    CHECK(speaker->write_host_time >= before && speaker->write_host_time <= mach_absolute_time());
+    const float *ring = speaker->samples;
+    uint32_t mask = HUSH_SPEAKER_CAPACITY - 1;
+    CHECK(ring[sw & mask] == 0.0f && ring[(sw + 1) & mask] == 1.0f && ring[(sw + 2) & mask] == 0.0f);
+    for (int i = 3; i < 512; i++) CHECK(ring[(sw + i) & mask] == 0.5f * (V((float)i) + V(3.0f * (float)i)));
+    // Other operations on the speaker do nothing.
+    CHECK((*driver)->DoIOOperation(driver, 4, 5, 0, kAudioServerPlugInIOOperationReadInput, 512, &cycle, stereo, NULL) == 0);
+    CHECK(atomic_load((_Atomic uint64_t *)&speaker->write_pos) == sw + 512);
+    // More than the ring holds: only the newest capacity frames are kept.
+    uint32_t big = HUSH_SPEAKER_CAPACITY + 100;
+    for (uint32_t i = 0; i < big; i++) stereo[2 * i] = stereo[2 * i + 1] = V((float)i);
+    CHECK((*driver)->DoIOOperation(driver, 4, 5, 0, kAudioServerPlugInIOOperationWriteMix, big, &cycle, stereo, NULL) == 0);
+    uint64_t sw2 = atomic_load((_Atomic uint64_t *)&speaker->write_pos);
+    CHECK(sw2 == sw + 512 + HUSH_SPEAKER_CAPACITY);
+    CHECK(ring[(sw2 - 1) & mask] == V((float)(big - 1)) && ring[sw2 & mask] == V(100.0f));
+    // Wrong device and stream pairs are refused.
+    CHECK((*driver)->DoIOOperation(driver, 4, 3, 0, kAudioServerPlugInIOOperationWriteMix, 1, &cycle, stereo, NULL) != 0);
+    CHECK((*driver)->DoIOOperation(driver, 2, 5, 0, kAudioServerPlugInIOOperationReadInput, 1, &cycle, stereo, NULL) != 0);
+    CHECK((*driver)->StopIO(driver, 4, 0) == 0);
+    CHECK(GetU32(4, kAudioDevicePropertyDeviceIsRunning, kAudioObjectPropertyScopeGlobal) == 0);
     puts("HushMic plug-in: all checks passed");
     return 0;
 }

@@ -37,8 +37,9 @@ Windows. In the app, turn noise cancellation on; the output goes to Hush AI Micr
 ## macOS
 
 `macos/` is a Core Audio server plug-in, structured like Apple's NullAudio sample: one
-plug-in, one device, one input stream. The plug-in creates the POSIX shared memory
-`/hush.mic.v1` (layout in `shared.h`); the app maps it.
+plug-in with two devices. Hush AI Microphone has one input stream. Hush AI Speaker (below) has
+one output stream. The plug-in creates the POSIX shared memory `/hush.mic.v1` (layout in
+`shared.h`); the app maps it.
 
 ```sh
 virtual_mic/macos/build.sh                      # universal arm64 + x86_64, ad-hoc signed
@@ -70,6 +71,65 @@ runs these cases; all pass:
 | 8 busy processes on the 8 cores | 0 glitches |
 
 Release builds need a Developer ID signature and notarization.
+
+### Hush AI Speaker (macOS)
+
+The same plug-in has a virtual output device. A meeting app (Zoom, Meet in a browser, Teams)
+chooses **Hush AI Speaker** as its speaker. Hush reads that audio, can clean and transcribe it,
+and plays it to the real speakers.
+
+```
+meeting app ─▶ "Hush AI Speaker" ─▶ plug-in (mono mix) ─▶ ring buffer ─▶ Hush app ─▶ real speakers
+```
+
+| Rule | Why |
+| --- | --- |
+| 48 kHz, 2 channels float32 on the device | Apps expect stereo output |
+| The plug-in writes the mean of the 2 channels, once per IO cycle | Core Audio mixes all apps first; the app gets one mono stream |
+| The plug-in is the writer, the app the reader. The plug-in never waits | No reader, or a slow reader: the oldest audio is overwritten |
+| Samples are made finite and clipped to [-1, 1] | A bad value cannot reach the app |
+| The app keeps its own read position | Reading never blocks; several readers do not disturb each other |
+| Never the default system (alert) output | System sounds do not go to a call |
+
+Ring `/hush.speaker.v1` (`HushSpeakerShared` in `shared.h`, version 1, magic `"HSPK"`), 64-byte
+lines:
+
+| Offset | Field | Written by |
+| --- | --- | --- |
+| 0 | magic, version, sample_rate (48000), capacity (16384 frames, 341 ms) | plug-in, at creation |
+| 64 | `write_pos` (u64, frames, stored with release order after the samples) | plug-in |
+| 72 | `write_host_time` (u64, `mach_absolute_time` of the last write), `write_frames` (u32) | plug-in |
+| 128 | `read_pos` (u64, diagnostics only) | app |
+| 192 | 16384 mono float32 samples, index = position % 16384 | plug-in |
+
+The app side is `hush_core::virtual_speaker::VirtualSpeaker`: `open()`, `read(out,
+max_latency)`, `buffered()`, `active()`, `skipped()`. `read` starts at the newest audio, skips
+ahead when more than `max_latency` frames (at most 12288, 256 ms) wait, resynchronises when the
+writer lapped it, and discards frames the plug-in overwrote during the copy. `active()` is true
+when an app wrote in the last 500 ms.
+
+```sh
+cargo run --release -p hush-core --features devices --example virtual_speaker_check
+```
+
+`virtual_speaker_check` plays a tone to Hush AI Speaker with CPAL and reads it back. It runs over
+SSH (playing needs no permission). Results (M1 Mac mini, macOS 26.6, IO buffer 512 frames):
+
+| Case | Result |
+| --- | --- |
+| 997 Hz, 0.5, 6 s, read every 10 ms, bound 2400 (× 3) | 997.0–997.2 Hz, RMS 0.3535 (expected 0.3536), 0 breaks |
+| 440 Hz, 0.8, read every 5 ms, bound 960 | 440.1 Hz, RMS 0.5657 (expected 0.5657), 0 breaks |
+| 3001 Hz, 0.25, read every 20 ms, bound 4800, no stall | 3000.9 Hz, 0 skipped, at most 1536 frames waiting |
+| Reader stalls 300 ms / 500 ms (lapped) | One skip to the bound, then clean; 0 frames waiting after each read |
+| 30 s run | 0 breaks other than the stall |
+| First audio read after the first play callback | 2–6 ms (20 ms when reading every 20 ms) |
+| `active()` | true 11–30 ms after play starts; false 0.47–0.49 s after it stops |
+| Default output after install | Unchanged (Mac mini Speakers) |
+
+CPAL 0.15 does not list Hush AI Speaker in `output_devices()`: to list output formats it opens an
+AUHAL unit with input enabled, which Core Audio refuses for an output-only virtual device. Find it
+in `devices()`; playing works. CPAL 0.15 also keeps the device running after a stream is dropped:
+pause the stream first.
 
 ## Windows with VB-CABLE (now)
 
@@ -153,5 +213,6 @@ attestation signing through the Hardware Dev Center.
   on a physical x64 PC and on an ARM64 device. Then run `windows\edge_tests.ps1` (the same
   cases as macOS) and a meeting app. The shared reader is already tested on Windows by
   `test_ring.c`; the kernel parts (control device, IOCTL, WaveRT copy) are not.
-- macOS: Google Meet or Zoom in a browser selecting Hush AI Microphone; Intel Macs.
+- macOS: Google Meet or Zoom in a browser selecting Hush AI Microphone or Hush AI Speaker;
+  Intel Macs.
 - Both: the full app path with a real microphone into a meeting, for an hour.

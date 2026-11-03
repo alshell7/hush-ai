@@ -86,6 +86,10 @@ name = "virtual_mic_check"
 required-features = ["devices"]
 
 [[example]]
+name = "virtual_speaker_check"
+required-features = ["devices"]
+
+[[example]]
 name = "loop_latency"
 required-features = ["devices"]
 

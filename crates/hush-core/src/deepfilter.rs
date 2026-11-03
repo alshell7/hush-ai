@@ -42,6 +42,12 @@ impl DeepFilter {
     /// Loads a model archive such as `DeepFilterNet3_onnx.tar.gz`. The settings are the defaults
     /// of `deep-filter` 0.5.6: no post-filter and no attenuation limit.
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        Self::load_with_limit(path, 100.0)
+    }
+
+    /// Like [`load`](Self::load), but removes at most `limit_db` decibels of noise: about 12 dB
+    /// keeps some room sound and sounds natural, 100 dB removes all it can.
+    pub fn load_with_limit(path: impl AsRef<Path>, limit_db: f32) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         ensure!(
             path.is_file(),
@@ -49,7 +55,7 @@ impl DeepFilter {
             path.display()
         );
         let runtime = RuntimeParams::default_with_ch(1)
-            .with_atten_lim(100.0)
+            .with_atten_lim(limit_db)
             .with_thresholds(-15.0, 35.0, 35.0)
             .with_mask_reduce(ReduceMask::MAX);
         // libDF panics on some malformed archives; report those as errors.

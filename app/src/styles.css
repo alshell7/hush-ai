@@ -438,3 +438,49 @@ button {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------------------------------------------------------------- Notch */
+html.notch,
+html.notch body {
+  background: transparent;
+  overflow: hidden;
+}
+
+@property --notch-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* A black island with a slowly turning Hush-hue rim. The rim only turns while something is
+   live, so an idle notch costs nothing. */
+.notch-rim {
+  --notch-angle: 0deg;
+  background: conic-gradient(from var(--notch-angle), #ffc4b0, #ffe0a6, #c9f2d4, #9be6e0, #b9c8ff, #ffc4b0);
+}
+.notch-rim[data-live="true"] {
+  animation: notch-turn 6s linear infinite;
+}
+.notch-rim[data-live="false"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+@keyframes notch-turn {
+  to {
+    --notch-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notch-rim[data-live="true"] {
+    animation: none;
+  }
+}
+.notch-island {
+  background: #0b0a09;
+  color: #f6f1ea;
+}
+.notch-island .text-muted {
+  color: rgba(246, 241, 234, 0.58);
+}
+.notch-island .text-faint {
+  color: rgba(246, 241, 234, 0.38);
+}
