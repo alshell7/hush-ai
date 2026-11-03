@@ -46,7 +46,7 @@ const FEATURES: Feature[] = [
     id: "cpu",
     icon: <CpuIcon size={18} />,
     title: "Light on the CPU",
-    body: <>DeepFilterNet 3, the default engine, uses about 6% of one CPU core. Your fans stay quiet and your battery lasts.</>,
+    body: <>DeepFilterNet 3, the default engine, uses about 7% of one CPU core. Your fans stay quiet and your battery lasts.</>,
     art: <CpuArt />,
     span: "",
   },

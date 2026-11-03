@@ -34,12 +34,25 @@ ws.addEventListener("message", (e) => {
 });
 const send = (method, params = {}) => new Promise((r) => { pending.set(++id, r); ws.send(JSON.stringify({ id, method, params })); });
 
-await send("Emulation.setDeviceMetricsOverride", { width: +width, height: +height, deviceScaleFactor: 2, mobile: false });
+await send("Emulation.setDeviceMetricsOverride", { width: +width, height: +height, deviceScaleFactor: 2, mobile: !!process.env.MOBILE });
+if (process.env.MOBILE) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await send("Page.enable");
 await send("Page.navigate", { url });
 await sleep(+wait);
-const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-writeFileSync(out, Buffer.from(data, "base64"));
+// STOPS="0,#features,2400" captures one image per scroll stop: out-0.png, out-1.png, …
+const stops = process.env.STOPS ? process.env.STOPS.split(",") : null;
+if (!stops) {
+  const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  writeFileSync(out, Buffer.from(data, "base64"));
+} else {
+  for (const [i, stop] of stops.entries()) {
+    const target = stop.startsWith("#") ? `(document.querySelector(${JSON.stringify(stop)})?.getBoundingClientRect().top ?? 0) + scrollY - 70` : stop;
+    await send("Runtime.evaluate", { expression: `document.documentElement.style.scrollBehavior='auto'; scrollTo(0, ${target})` });
+    await sleep(1600);
+    const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    writeFileSync(out.replace(/\.png$/, `-${i}.png`), Buffer.from(data, "base64"));
+  }
+}
 ws.close();
 proc.kill();
 console.log(`saved ${out}`);

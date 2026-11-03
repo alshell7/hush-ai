@@ -170,7 +170,7 @@ function Flow() {
   }, [visible, auto, step]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-center">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-center">
       <ol className="space-y-1.5" aria-label="Connect Google Calendar, step by step">
         {STEPS.map((s, i) => {
           const on = i === step;

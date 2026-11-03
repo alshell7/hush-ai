@@ -77,7 +77,7 @@ const FAQ: { id: string; q: string; a: ReactNode }[] = [
     a: (
       <>
         <p>
-          <strong className="font-[620]">DeepFilterNet 3</strong>, the default, for almost everyone: it uses about 6% of one CPU core and scored highest on
+          <strong className="font-[620]">DeepFilterNet 3</strong>, the default, for almost everyone: it uses about 7% of one CPU core and scored highest on
           PESQ, STOI and SI-SDR in our test.
         </p>
         <p>

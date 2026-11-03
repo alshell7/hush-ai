@@ -245,8 +245,8 @@ const STEPS: { title: string; body: ReactNode; chips: string[]; doc?: { slug: st
 function Stack({ active }: { active: number }) {
   const ref = usePauseOffscreen<HTMLDivElement>();
   return (
-    <div ref={ref} className="iso relative mx-auto aspect-[420/560] w-full max-w-[300px] sm:max-w-[400px] lg:max-w-[460px]">
-      <svg viewBox="0 -80 420 560" className="h-full w-full overflow-visible" role="img" aria-label="Five layers stacked: research models, Rust on the CPU, the real-time engine, the app with its virtual microphone, and meeting apps on top">
+    <div ref={ref} className="iso relative mx-auto aspect-[420/560] w-full max-w-[210px] sm:max-w-[400px] lg:max-w-[460px]">
+      <svg viewBox="0 -80 420 560" className="h-full w-full overflow-hidden lg:overflow-visible" role="img" aria-label="Five layers stacked: research models, Rust on the CPU, the real-time engine, the app with its virtual microphone, and meeting apps on top">
         <defs>
           <linearGradient id="iso-opal" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#ffc4b0" />
@@ -330,7 +330,7 @@ export function Built() {
           sub="Five layers, from GPU research code to a microphone every app can use. Scroll through them."
         />
         <div className="mt-12 grid gap-6 lg:mt-16 lg:grid-cols-[1.05fr_1fr] lg:gap-14">
-          <div className="sticky top-[76px] z-10 -mx-4 self-start bg-[linear-gradient(180deg,var(--h-paper)_86%,transparent)] px-4 pb-4 lg:top-[110px] lg:mx-0 lg:bg-none lg:px-0 lg:pb-0">
+          <div className="sticky top-[68px] z-10 -mx-4 self-start bg-[linear-gradient(180deg,var(--h-paper)_90%,transparent)] px-4 pb-7 lg:top-[110px] lg:mx-0 lg:bg-none lg:px-0 lg:pb-0">
             <Stack active={active} />
           </div>
           <ol className="relative">
@@ -341,7 +341,7 @@ export function Built() {
                   stepRefs.current[i] = el;
                 }}
                 data-step={i}
-                className="flex min-h-[46vh] items-center py-6 lg:min-h-[62vh]"
+                className="flex min-h-[52vh] items-center py-6 lg:min-h-[62vh]"
               >
                 <div className="built-step w-full rounded-[26px] p-5 transition-[opacity,transform] duration-500 sm:p-7" style={{ opacity: i === active ? 1 : 0.42, transform: i === active ? "none" : "scale(.98)" }}>
                   <div className="flex items-center gap-3">

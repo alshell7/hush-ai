@@ -26,9 +26,9 @@ export type System = {
 export const SYSTEMS: System[] = [
   { id: "noisy", name: "No suppression", short: "No suppression", detail: "The noisy input", kind: "input", pesq: 1.97, stoi: 0.921, sisdr: 8.4, dnsmos: 2.7, cpu: null },
   { id: "rnnoise", name: "RNNoise", short: "RNNoise", detail: "xiph/rnnoise", kind: "reference", pesq: 2.11, stoi: 0.89, sisdr: 12.3, dnsmos: 2.94, cpu: 0.05 },
-  { id: "reuseLight", name: "Hush · NVIDIA RE-USE Light", short: "NVIDIA RE-USE Light", detail: "16 kHz, 3 layers", kind: "hush", pesq: 2.61, stoi: 0.934, sisdr: 18.0, dnsmos: 3.16, cpu: 0.79 },
-  { id: "reuse8", name: "Hush · NVIDIA RE-USE", short: "NVIDIA RE-USE", detail: "16 kHz, 8 layers", kind: "hush", pesq: 2.77, stoi: 0.938, sisdr: 18.5, dnsmos: 3.23, cpu: 1.46 },
-  { id: "deepfilter", name: "Hush · DeepFilterNet 3", short: "DeepFilterNet 3", detail: "48 kHz, the default", kind: "hush", pesq: 3.1, stoi: 0.945, sisdr: 19.0, dnsmos: 3.18, cpu: 0.06 },
+  { id: "reuseLight", name: "Hush · NVIDIA RE-USE Light", short: "NVIDIA RE-USE Light", detail: "16 kHz, 3 layers", kind: "hush", pesq: 2.61, stoi: 0.934, sisdr: 18.0, dnsmos: 3.16, cpu: null },
+  { id: "reuse8", name: "Hush · NVIDIA RE-USE", short: "NVIDIA RE-USE", detail: "16 kHz, 8 layers", kind: "hush", pesq: 2.77, stoi: 0.938, sisdr: 18.5, dnsmos: 3.23, cpu: null },
+  { id: "deepfilter", name: "Hush · DeepFilterNet 3", short: "DeepFilterNet 3", detail: "48 kHz, the default", kind: "hush", pesq: 3.1, stoi: 0.945, sisdr: 19.0, dnsmos: 3.18, cpu: 0.07 },
 ];
 
 export type Metric = {
@@ -104,7 +104,7 @@ export const NOTES = [
   "DeepFilterNet 3 numbers come from the official deep-filter 0.5.6 binary. Hush runs the same libDF code and model.",
   "One dataset, objective metrics only, no listening test. The test speech and noise are close to DeepFilterNet 3's training data.",
   "CPU is approximate: one process at a time on an 8-core x64 laptop that was also doing other work.",
-  "Live load in the app (debug build, Windows laptop, one thread): DeepFilterNet 3 about 2.3% of real time, RE-USE Light 69%.",
+  "Live load in the app (debug build, Windows laptop, one thread): DeepFilterNet 3 about 2.3% of real time.",
 ];
 
 export type EngineId = "deepfilter" | "reuse";
@@ -119,7 +119,7 @@ export const ENGINES: Record<
     role: "The default",
     license: "MIT or Apache-2.0. Free for any use.",
     licenseUrl: null,
-    points: ["About 6% of one CPU core", "Highest PESQ, STOI and SI-SDR here", "Full band, 48 kHz, on one thread", "Free for any use, also at work"],
+    points: ["About 7% of one CPU core", "Highest PESQ, STOI and SI-SDR here", "Full band, 48 kHz, on one thread", "Free for any use, also at work"],
   },
   reuse: {
     name: "NVIDIA Real-time RE-USE",
@@ -127,7 +127,7 @@ export const ENGINES: Record<
     role: "The most natural sound",
     license: "NVIDIA RE-USE model license",
     licenseUrl: REUSE_LICENSE_URL,
-    points: ["Best DNSMOS (natural sound) with 8 layers", "Light, Balanced and Studio quality in the app", "Heavier: 79–146% of one core in our test", "Optional: download it in Settings"],
+    points: ["Best DNSMOS (natural sound) with 8 layers", "Light, Balanced and Studio quality in the app", "Wants a faster CPU", "Optional: download it in Settings"],
   },
 };
 
