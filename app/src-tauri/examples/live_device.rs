@@ -9,6 +9,7 @@ mod audio_io;
 #[path = "../src/audio/live_io.rs"]
 mod live_io;
 #[cfg(target_os = "linux")]
+#[allow(dead_code)]
 #[path = "../src/audio/pulse.rs"]
 mod pulse;
 
