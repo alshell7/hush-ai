@@ -1,0 +1,746 @@
+{
+  "dataset": {
+    "name": "VoiceBank-DEMAND test set (Valentini-Botinhao et al., University of Edinburgh DataShare, doi:10.7488/ds/2117, CC BY 4.0)",
+    "files": 824,
+    "hours": 0.5756,
+    "downloads": {
+      "noisy_testset_wav.zip": {
+        "url": "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/noisy_testset_wav.zip",
+        "sha256": "ba4a893f45b627f15209ba30ab584dd495b3680cd6f216dd08d143a257611993"
+      },
+      "clean_testset_wav.zip": {
+        "url": "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/clean_testset_wav.zip",
+        "sha256": "b60bfc2b9df38466d8eb45057c087c6e5dee196c67a0ed7bca628ae2a8611c4e"
+      },
+      "logfiles.zip": {
+        "url": "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/logfiles.zip",
+        "sha256": "ab37c41f31bc2b6c204cc10c8e5bb8bde800307fdb49f277e366d986fefc9e39"
+      },
+      "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe": {
+        "url": "https://github.com/Rikorose/DeepFilterNet/releases/download/v0.5.6/deep-filter-0.5.6-x86_64-pc-windows-msvc.exe",
+        "sha256": "75e11fa16445f560cb6b021521ddb89e89270d13b83089705d98776f58fd7915"
+      },
+      "sig_bak_ovr.onnx": {
+        "url": "https://raw.githubusercontent.com/microsoft/DNS-Challenge/591184a9fcb2cbdec02520fed81a32bbbf9d73ff/DNSMOS/DNSMOS/sig_bak_ovr.onnx",
+        "sha256": "269fbebdb513aa23cddfbb593542ecc540284a91849ac50516870e1ac78f6edd"
+      }
+    }
+  },
+  "method": {
+    "input": "48 kHz 16-bit noisy file + 100 ms of silence, same for every system",
+    "resampling": "ffmpeg -af aresample=resampler=soxr -ar 16000 -c:a pcm_f32le (clean reference, 16 kHz system inputs, 48 kHz system outputs)",
+    "alignment": "constant delay per system: median cross-correlation peak against the clean reference on 24 evenly spaced files (search +/-250 ms); outputs shifted by it and cut to the clean length",
+    "metrics": {
+      "pesq_wb": "ITU-T P.862.2 wide-band, pesq 0.0.4 (Python wrapper of the ITU reference C code)",
+      "stoi/estoi": "pystoi 0.4.1",
+      "si_sdr": "numpy, zero-mean, scale-invariant (Le Roux et al. 2019)",
+      "dnsmos": "DNSMOS P.835 sig_bak_ovr.onnx from microsoft/DNS-Challenge @591184a (MIT), dnsmos_local.py logic, personalized=False, onnxruntime 1.31.1",
+      "summary": "mean over all files; std; ci95 = 1.96 * std / sqrt(n)"
+    }
+  },
+  "systems_tested": {
+    "hush": {
+      "engine": "hush-core 1.0.0 (this repository), example enhance_dir: 1000-sample chunks, one fresh stream per file, look-ahead 0",
+      "model": "nvidia/Real-time_RE-USE model.safetensors, revision 4c0c186",
+      "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "commands": {
+        "hush_light": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 3 0 models/model.safetensors   # input 16000 Hz",
+        "hush_studio": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 3 0 models/model.safetensors   # input 48000 Hz",
+        "hush_16k_8layers": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 8 0 models/model.safetensors   # input 16000 Hz"
+      }
+    },
+    "deepfilternet3": {
+      "binary": "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe",
+      "release": "https://github.com/Rikorose/DeepFilterNet/releases/tag/v0.5.6 (bundled DeepFilterNet3)",
+      "sha256": "75e11fa16445f560cb6b021521ddb89e89270d13b83089705d98776f58fd7915",
+      "settings": "defaults: no post-filter, attenuation limit 100 dB (none), no delay compensation",
+      "command": "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe -o <out> <file.wav>   # one process per file, so each file starts fresh"
+    },
+    "rnnoise": {
+      "binding": "pyrnnoise 0.4.5 (PyPI wheel, win_amd64)",
+      "library": "xiph/rnnoise @70f1d256acd4b34a572f999a05c87bf00b67730d (2025-02-22), model rnnoise_data-0a8755f8e2d8 (model_version at that commit)",
+      "call": "rnnoise_process_frame on 480-sample frames, float samples on the 16-bit scale, fresh state per file"
+    },
+    "driver": "python -I benchmarks/compare/compare.py --work <work> --jobs 8 all",
+    "python": "3.13.14",
+    "numpy": "2.5.4",
+    "ffmpeg": "ffmpeg version 8.1.1-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "results": {
+    "clean": {
+      "label": "Clean reference",
+      "metrics": {
+        "dnsmos_sig": {
+          "mean": 3.5106799527819126,
+          "std": 0.15696336081003676,
+          "ci95": 0.010717432440030929,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.037657593408322,
+          "std": 0.11171477257534972,
+          "ci95": 0.007627866283257944,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.2198614866867894,
+          "std": 0.19056431254163123,
+          "ci95": 0.013011699893566982,
+          "n": 824
+        }
+      }
+    },
+    "noisy": {
+      "label": "Noisy (unprocessed)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 1.9673367534736985,
+          "std": 0.7515513789630396,
+          "ci95": 0.051315804450674164,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.9210620534844374,
+          "std": 0.07091655591501096,
+          "ci95": 0.0048421707650528716,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.7866940259058145,
+          "std": 0.14952407625180394,
+          "ci95": 0.010209479314896725,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 8.445527072166854,
+          "std": 5.618256879002365,
+          "ci95": 0.3836136549364495,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.3466867496291077,
+          "std": 0.517149146497228,
+          "ci95": 0.0353108586003804,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 3.126247158507548,
+          "std": 0.7362535772811974,
+          "ci95": 0.050271273069847286,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 2.6970068167244117,
+          "std": 0.5180018381443958,
+          "ci95": 0.035369080245696474,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 0,
+        "delay_ms": 0.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          0
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 1.4194,
+          "si_sdr": 0.955,
+          "dnsmos_ovrl": 2.2386
+        },
+        "7.5 dB": {
+          "pesq_wb": 1.7604,
+          "si_sdr": 6.0307,
+          "dnsmos_ovrl": 2.6739
+        },
+        "12.5 dB": {
+          "pesq_wb": 2.099,
+          "si_sdr": 10.9181,
+          "dnsmos_ovrl": 2.8759
+        },
+        "17.5 dB": {
+          "pesq_wb": 2.5987,
+          "si_sdr": 15.9757,
+          "dnsmos_ovrl": 3.0041
+        }
+      },
+      "pesq_failures": 0
+    },
+    "hush_light": {
+      "label": "RE-USE via Hush, Light (16 kHz, 3 layers)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 2.6115040780560483,
+          "std": 0.5474961848557302,
+          "ci95": 0.037382949384393974,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.9338442409938672,
+          "std": 0.05642432212837746,
+          "ci95": 0.003852643427514834,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.8477530181805231,
+          "std": 0.10161084441593937,
+          "ci95": 0.006937971731634135,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 17.95261200573388,
+          "std": 2.8537042069580956,
+          "ci95": 0.19485045353303726,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.4283427662505006,
+          "std": 0.20088664046804688,
+          "ci95": 0.01371650674533344,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.04339139235683,
+          "std": 0.12508185995676527,
+          "ci95": 0.008540568809446147,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.155963683572491,
+          "std": 0.22528942669335486,
+          "ci95": 0.015382724972112974,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 0,
+        "delay_ms": 0.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          0
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 2.2246,
+          "si_sdr": 15.6304,
+          "dnsmos_ovrl": 3.0662
+        },
+        "7.5 dB": {
+          "pesq_wb": 2.5448,
+          "si_sdr": 17.6729,
+          "dnsmos_ovrl": 3.146
+        },
+        "12.5 dB": {
+          "pesq_wb": 2.6989,
+          "si_sdr": 18.746,
+          "dnsmos_ovrl": 3.1918
+        },
+        "17.5 dB": {
+          "pesq_wb": 2.9828,
+          "si_sdr": 19.7864,
+          "dnsmos_ovrl": 3.2206
+        }
+      },
+      "pesq_failures": 0,
+      "minus_deepfilternet3_paired": {
+        "pesq_wb": {
+          "mean": -0.4927250748699151,
+          "std": 0.3091486623491189,
+          "ci95": 0.02110861977950687,
+          "n": 824
+        },
+        "stoi": {
+          "mean": -0.011143620520185808,
+          "std": 0.021989053530854705,
+          "ci95": 0.0015014089557012693,
+          "n": 824
+        },
+        "estoi": {
+          "mean": -0.016332414899897146,
+          "std": 0.026465265442065504,
+          "ci95": 0.001807043968216852,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": -1.0292999259477484,
+          "std": 1.5758395417340498,
+          "ci95": 0.10759806452732402,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": -0.006509290647557314,
+          "std": 0.09641148524780398,
+          "ci95": 0.00658296034344536,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": -0.03635614675662954,
+          "std": 0.10111900432456508,
+          "ci95": 0.006904388971151692,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": -0.02196292814647096,
+          "std": 0.11449015790334438,
+          "ci95": 0.0078173691366266,
+          "n": 824
+        }
+      }
+    },
+    "hush_studio": {
+      "label": "RE-USE via Hush, Studio (48 kHz, 3 layers)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 2.6954800869944027,
+          "std": 0.5695175769818768,
+          "ci95": 0.03888656641405886,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.9354752193884321,
+          "std": 0.05700645938834157,
+          "ci95": 0.003892391663805727,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.8503233664184853,
+          "std": 0.10136858718365688,
+          "ci95": 0.006921430447689286,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 16.90476163574757,
+          "std": 2.8167420691529315,
+          "ci95": 0.19232668484764714,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.409357699170711,
+          "std": 0.20635393529838322,
+          "ci95": 0.014089812736435238,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.032083942116562,
+          "std": 0.1381522599223321,
+          "ci95": 0.009433013567714778,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.13235601904813,
+          "std": 0.2354094705818037,
+          "ci95": 0.01607371990306289,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 0,
+        "delay_ms": 0.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          0
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 2.2754,
+          "si_sdr": 14.6518,
+          "dnsmos_ovrl": 3.0209
+        },
+        "7.5 dB": {
+          "pesq_wb": 2.6271,
+          "si_sdr": 16.3743,
+          "dnsmos_ovrl": 3.1272
+        },
+        "12.5 dB": {
+          "pesq_wb": 2.7952,
+          "si_sdr": 17.5863,
+          "dnsmos_ovrl": 3.1742
+        },
+        "17.5 dB": {
+          "pesq_wb": 3.0897,
+          "si_sdr": 19.035,
+          "dnsmos_ovrl": 3.2082
+        }
+      },
+      "pesq_failures": 0,
+      "minus_deepfilternet3_paired": {
+        "pesq_wb": {
+          "mean": -0.4087490659315609,
+          "std": 0.2954684689242328,
+          "ci95": 0.020174538424207567,
+          "n": 824
+        },
+        "stoi": {
+          "mean": -0.009512642125620823,
+          "std": 0.020741281337618957,
+          "ci95": 0.0014162112757297137,
+          "n": 824
+        },
+        "estoi": {
+          "mean": -0.013762066661935031,
+          "std": 0.02527827213336999,
+          "ci95": 0.0017259962604775341,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": -2.0771502959340564,
+          "std": 2.083218047607101,
+          "ci95": 0.14224178539412743,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": -0.025494357727346803,
+          "std": 0.0995950991905081,
+          "ci95": 0.006800336979432185,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": -0.04766359699689726,
+          "std": 0.1177859885208955,
+          "ci95": 0.008042407908701176,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": -0.04557059267083257,
+          "std": 0.12427432316032193,
+          "ci95": 0.008485430329905086,
+          "n": 824
+        }
+      }
+    },
+    "hush_16k_8layers": {
+      "label": "RE-USE via Hush, 16 kHz, 8 layers",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 2.7665547469576586,
+          "std": 0.5722531092851896,
+          "ci95": 0.03907334810946202,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.9383621167134989,
+          "std": 0.05430579205192728,
+          "ci95": 0.0037079905426036404,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.8585678237426542,
+          "std": 0.09725327199516617,
+          "ci95": 0.00664043740399764,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 18.52638394987291,
+          "std": 2.9935134509329453,
+          "ci95": 0.20439660569911933,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.480884016321777,
+          "std": 0.18054787928882365,
+          "ci95": 0.0123277794797644,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.1013654607607135,
+          "std": 0.09396790229310546,
+          "ci95": 0.006416112901510887,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.2324566015269354,
+          "std": 0.20221501976605946,
+          "ci95": 0.013807208265151274,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 0,
+        "delay_ms": 0.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          0
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 2.3736,
+          "si_sdr": 16.1134,
+          "dnsmos_ovrl": 3.1784
+        },
+        "7.5 dB": {
+          "pesq_wb": 2.722,
+          "si_sdr": 18.2009,
+          "dnsmos_ovrl": 3.2355
+        },
+        "12.5 dB": {
+          "pesq_wb": 2.8556,
+          "si_sdr": 19.3883,
+          "dnsmos_ovrl": 3.2501
+        },
+        "17.5 dB": {
+          "pesq_wb": 3.12,
+          "si_sdr": 20.4289,
+          "dnsmos_ovrl": 3.2663
+        }
+      },
+      "pesq_failures": 0,
+      "minus_deepfilternet3_paired": {
+        "pesq_wb": {
+          "mean": -0.337674405968305,
+          "std": 0.31864070686125673,
+          "ci95": 0.021756735016410605,
+          "n": 824
+        },
+        "stoi": {
+          "mean": -0.006625744800554013,
+          "std": 0.022799117891821284,
+          "ci95": 0.0015567200169319421,
+          "n": 824
+        },
+        "estoi": {
+          "mean": -0.005517609337766113,
+          "std": 0.02683064384501004,
+          "ci95": 0.001831991945428831,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": -0.45552798180871656,
+          "std": 1.3407241846855185,
+          "ci95": 0.09154442664790206,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 0.04603195942371852,
+          "std": 0.10745603311427987,
+          "ci95": 0.007337080253842145,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 0.02161792164725453,
+          "std": 0.07589295799720462,
+          "ci95": 0.005181958680112152,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 0.0545299898079734,
+          "std": 0.11782520146686164,
+          "ci95": 0.008045085362197316,
+          "n": 824
+        }
+      }
+    },
+    "deepfilternet3": {
+      "label": "DeepFilterNet 3 (deep-filter 0.5.6, 48 kHz)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 3.1042291529259636,
+          "std": 0.6319201661187992,
+          "ci95": 0.043147404928897855,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.944987861514053,
+          "std": 0.049647426088710804,
+          "ci95": 0.0033899180813995624,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.8640854330804202,
+          "std": 0.0944146851603411,
+          "ci95": 0.006446619162145535,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 18.981911931681626,
+          "std": 3.4514771356202054,
+          "ci95": 0.23566629070900788,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.434852056898058,
+          "std": 0.2160598020956796,
+          "ci95": 0.014752527723774576,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.07974753911346,
+          "std": 0.09741177398781552,
+          "ci95": 0.0066512598939664005,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.1779266117189624,
+          "std": 0.23348291926184056,
+          "ci95": 0.015942175296045042,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 480,
+        "delay_ms": 30.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          480
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 2.5656,
+          "si_sdr": 16.0233,
+          "dnsmos_ovrl": 3.0979
+        },
+        "7.5 dB": {
+          "pesq_wb": 3.0607,
+          "si_sdr": 18.4714,
+          "dnsmos_ovrl": 3.1844
+        },
+        "12.5 dB": {
+          "pesq_wb": 3.2486,
+          "si_sdr": 19.9063,
+          "dnsmos_ovrl": 3.2086
+        },
+        "17.5 dB": {
+          "pesq_wb": 3.5481,
+          "si_sdr": 21.5616,
+          "dnsmos_ovrl": 3.2215
+        }
+      },
+      "pesq_failures": 0
+    },
+    "rnnoise": {
+      "label": "RNNoise (pyrnnoise 0.4.5, 48 kHz)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 2.1087783096195425,
+          "std": 0.5689041104649165,
+          "ci95": 0.038844679021257045,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.8902746168641396,
+          "std": 0.08247983158082171,
+          "ci95": 0.005631709324205946,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.783184367480606,
+          "std": 0.12563973874287518,
+          "ci95": 0.008578660681135206,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 12.282238177494238,
+          "std": 3.2426209599819953,
+          "ci95": 0.22140562541403658,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.2872104190214255,
+          "std": 0.2597755661044562,
+          "ci95": 0.017737432894704377,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 3.851770285826114,
+          "std": 0.3010389665288434,
+          "ci95": 0.020554891083749697,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 2.9392018788066387,
+          "std": 0.32049102132812735,
+          "ci95": 0.02188307418364784,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 320,
+        "delay_ms": 20.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          320
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 1.7497,
+          "si_sdr": 9.7429,
+          "dnsmos_ovrl": 2.7388
+        },
+        "7.5 dB": {
+          "pesq_wb": 2.0729,
+          "si_sdr": 12.0498,
+          "dnsmos_ovrl": 2.9468
+        },
+        "12.5 dB": {
+          "pesq_wb": 2.1879,
+          "si_sdr": 13.2701,
+          "dnsmos_ovrl": 2.9911
+        },
+        "17.5 dB": {
+          "pesq_wb": 2.4291,
+          "si_sdr": 14.0912,
+          "dnsmos_ovrl": 3.0823
+        }
+      },
+      "pesq_failures": 0
+    }
+  },
+  "cpu_cost_approximate": {
+    "note": "One process at a time on a shared 8-core x64 laptop (16 logical CPUs) while other work was running; ~30 s clip (first test files joined); median of runs. rtf_wall = processing time / audio time. Hush and RNNoise exclude model loading; DeepFilterNet's rtf_wall is its own log (excludes loading) and its CPU figure includes loading. deep-filter and RNNoise run single-threaded; Hush uses RAYON_NUM_THREADS workers.",
+    "runs": {
+      "hush_light/threads=1": {
+        "rtf_wall": 0.7927728660986979,
+        "cpu_per_audio_second": 0.7916733644108664,
+        "audio_seconds": 31.105
+      },
+      "hush_light/threads=2": {
+        "rtf_wall": 0.4469924449445427,
+        "cpu_per_audio_second": 0.8378877993891657,
+        "audio_seconds": 31.105
+      },
+      "hush_studio/threads=1": {
+        "rtf_wall": 2.2311203986497348,
+        "cpu_per_audio_second": 2.224320848738145,
+        "audio_seconds": 31.105
+      },
+      "hush_studio/threads=2": {
+        "rtf_wall": 1.0964507313936667,
+        "cpu_per_audio_second": 2.0449895515190484,
+        "audio_seconds": 31.105
+      },
+      "hush_16k_8layers/threads=1": {
+        "rtf_wall": 1.451956277125864,
+        "cpu_per_audio_second": 1.4627873332261694,
+        "audio_seconds": 31.105
+      },
+      "hush_16k_8layers/threads=2": {
+        "rtf_wall": 0.8394663237421636,
+        "cpu_per_audio_second": 1.5908824947757596,
+        "audio_seconds": 31.105
+      },
+      "deepfilternet3": {
+        "rtf_wall": 0.053655393,
+        "cpu_per_audio_second_incl_model_load": 0.058772705352837164,
+        "audio_seconds": 31.105
+      },
+      "rnnoise": {
+        "rtf_wall": 0.0490046198385666,
+        "cpu_per_audio_second": 0.04872608905320688,
+        "audio_seconds": 31.105
+      }
+    }
+  }
+}

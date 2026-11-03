@@ -41,7 +41,7 @@ No account. No cloud. No subscription. Your voice never leaves your computer.
 | --- | --- |
 | 🔒 **Private** | Everything runs on your CPU. Hush sends no audio, no telemetry and has no servers. |
 | ⚡ **Real time** | 20 ms frames, about 60–80 ms from your microphone to your call. |
-| 🪶 **Light** | Automatic threads use the fewest CPU cores that keep up. Windows "Pro Audio" priority keeps your voice smooth when the computer is busy. |
+| ⚙️ **Self-tuning** | Automatic threads use the fewest CPU cores that keep up. Windows "Pro Audio" priority keeps your voice smooth when the computer is busy. |
 | 🎙️ **Works everywhere** | One virtual microphone for every app: Hush AI Microphone. |
 | 🎯 **Proven quality** | NVIDIA's [Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE) speech model with its original weights, in native Rust. The output matches NVIDIA's GPU reference at 113–118 dB. |
 | 🧸 **Pleasant** | A calm app, a tray and menu bar widget, and updates that install themselves. |
@@ -140,6 +140,32 @@ One frame is 20 ms of audio, so each frame must finish in less than 20 ms.
 
 [Performance](docs/PERFORMANCE.md) has every measurement and how to repeat it.
 
+## How it compares
+
+Hush (NVIDIA RE-USE) against DeepFilterNet 3 and RNNoise on the VoiceBank-DEMAND test set
+(824 files), scored at 16 kHz. Higher is better; **bold** is the best.
+
+| System | PESQ | STOI | SI-SDR | DNSMOS OVRL | CPU per audio second (1 thread) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Noisy input | 1.97 | 0.921 | 8.4 dB | 2.70 | – |
+| RNNoise | 2.11 | 0.890 | 12.3 dB | 2.94 | 5% |
+| **Hush Light** (app default: 16 kHz, 3 layers) | 2.61 | 0.934 | 18.0 dB | 3.16 | 79% |
+| Hush, 16 kHz, 8 layers | 2.77 | 0.938 | 18.5 dB | **3.23** | 146% |
+| DeepFilterNet 3 | **3.10** | **0.945** | **19.0 dB** | 3.18 | 6% |
+
+What this shows, plainly:
+
+- **Hush is far ahead of RNNoise** on every metric.
+- **DeepFilterNet 3 scores higher than Hush Light on every metric** and uses about 15 times
+  less CPU. With 8 layers, RE-USE has the best DNSMOS (a neural estimate of what listeners
+  think), but DeepFilterNet 3 still leads on PESQ, STOI and SI-SDR.
+- **Hush reproduces NVIDIA's published RE-USE scores** (PESQ 2.77 against 2.76 in the paper).
+- **Caveats:** one dataset, objective metrics only, no listening test. The test speech is
+  VCTK and the noise is DEMAND, which is close to DeepFilterNet 3's training data.
+
+[Comparison](docs/COMPARISON.md) has the method, all metrics, results by noise level,
+published numbers, delays and the script to repeat it.
+
 ## Roadmap
 
 - [x] **Noise cancellation**: real time, on device, in every app
@@ -235,6 +261,7 @@ More in the [user guide](docs/GUIDE.md).
 | [Architecture](docs/ARCHITECTURE.md) | How audio flows through Hush |
 | [Performance](docs/PERFORMANCE.md) | CPU time, delay, long runs |
 | [Accuracy](docs/ACCURACY.md) | Comparison with NVIDIA's GPU reference |
+| [Comparison](docs/COMPARISON.md) | Hush vs DeepFilterNet 3 and RNNoise, measured |
 | [Virtual microphone](virtual_mic/README.md) | The drivers for macOS and Windows |
 | [Build and release](docs/BUILD.md) | Develop, test, release |
 
