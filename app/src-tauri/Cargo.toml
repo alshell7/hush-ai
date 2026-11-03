@@ -45,6 +45,9 @@ symphonia = { version = "0.5", default-features = false, features = ["aac", "adp
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 chrono-tz = "0.10"
 rrule = "0.14"
+# Live Translate: Gemini Live over a WebSocket.
+tungstenite = { version = "0.27", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+base64 = "0.22"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.54"

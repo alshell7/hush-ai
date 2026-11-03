@@ -194,8 +194,8 @@ function SettingsBody() {
             </button>
           )}
         </Row>
-        <Row title="Model license" detail="NVIDIA One-Way Noncommercial License: research and educational use.">
-          <button className="btn btn-ghost btn-sm" onClick={() => openUrl("https://huggingface.co/nvidia/Real-time_RE-USE")}>
+        <Row title="Model license">
+          <button className="btn btn-ghost btn-sm" onClick={() => openUrl("https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE")}>
             Read <ExternalIcon size={14} />
           </button>
         </Row>

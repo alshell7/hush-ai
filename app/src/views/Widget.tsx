@@ -1,12 +1,12 @@
 // The tray / menu bar widget: the switch, the microphone and a glance at the levels.
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Segmented, Toggle } from "../components/Controls";
 import { ExternalIcon, MicIcon } from "../components/Icons";
 import { MeetingSoon, NextUp, useSoon } from "../components/MeetingSoon";
 import { LevelStrip } from "../components/Meters";
 import { Mark, Mochi } from "../components/Mochi";
-import { api, on } from "../lib/ipc";
+import { api, invoke, isTauri, on } from "../lib/ipc";
 import { refreshDevices, saveSettings, useApp } from "../lib/store";
 
 export function Widget() {
@@ -15,6 +15,24 @@ export function Widget() {
   const devices = useApp((s) => s.devices);
   const [hint, setHint] = useState(false);
   const soon = useSoon();
+  const card = useRef<HTMLDivElement>(null);
+
+  // The window follows the card's height, so a meeting pop-up or the next meeting never
+  // squeezes the levels, and there is no empty space when they are gone.
+  useEffect(() => {
+    const el = card.current;
+    if (!el || !isTauri) return;
+    let last = 0;
+    const observer = new ResizeObserver(() => {
+      const height = Math.ceil(el.getBoundingClientRect().height) + 24;
+      if (Math.abs(height - last) > 1) {
+        last = height;
+        invoke("widget_fit", { height });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [settings === null]);
 
   useEffect(() => {
     document.documentElement.classList.add("widget");
@@ -32,9 +50,10 @@ export function Widget() {
   const mic = devices?.inputs.find((d) => d.name === settings.input)?.label ?? settings.input ?? "System default";
 
   return (
-    <div className="h-full p-3">
+    <div className="p-3">
       <div
-        className="relative flex h-full flex-col overflow-hidden rounded-[22px] p-4"
+        ref={card}
+        className="relative flex flex-col overflow-hidden rounded-[22px] p-4"
         style={{
           background: "rgba(253,252,250,.97)",
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 1px rgba(30,27,24,.1), 0 10px 24px -10px rgba(30,27,24,.35)",
@@ -105,7 +124,7 @@ export function Widget() {
           />
         </div>
 
-        <footer className="relative mt-auto flex items-center justify-between pt-3">
+        <footer className="relative flex items-center justify-between pt-3">
           <button className="btn btn-ghost btn-sm" onClick={() => api.openMain()}>
             Open Hush AI
           </button>

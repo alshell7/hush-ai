@@ -52,6 +52,9 @@ pub struct Settings {
     pub calendar_popup: bool,
     /// Minutes between calendar reads.
     pub calendar_sync: u32,
+    /// Live Translate: the language you speak, and the one the other side hears (BCP-47).
+    pub translate_from: String,
+    pub translate_to: String,
 }
 
 impl Default for Settings {
@@ -72,6 +75,8 @@ impl Default for Settings {
             calendar_auto_off: true,
             calendar_popup: true,
             calendar_sync: 5,
+            translate_from: "en".into(),
+            translate_to: "es".into(),
         }
     }
 }

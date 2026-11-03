@@ -13,6 +13,7 @@ const TRAY: &str = "hush";
 
 pub struct TrayItems {
     toggle: CheckMenuItem<Wry>,
+    translate: CheckMenuItem<Wry>,
     /// When the widget last hid because it lost focus. A click on the icon right after
     /// that must not show it again.
     hidden_at: Mutex<Option<Instant>>,
@@ -37,11 +38,25 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         false,
         None::<&str>,
     )?;
+    let translate = CheckMenuItem::with_id(
+        app,
+        "translate",
+        "Translate my voice",
+        true,
+        false,
+        None::<&str>,
+    )?;
     let open = MenuItem::with_id(app, "open", "Open Hush AI", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Hush AI", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&toggle, &open, &PredefinedMenuItem::separator(app)?, &quit],
+        &[
+            &toggle,
+            &translate,
+            &open,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
     )?;
     TrayIconBuilder::with_id(TRAY)
         .icon(icon(false))
@@ -54,24 +69,33 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 let on = app.state::<Arc<Engine>>().state().status != Status::Off;
                 crate::set_enabled(app, !on);
             }
+            "translate" => {
+                let translator = app.state::<Arc<crate::translate::Translator>>();
+                let on = translator.info().on;
+                crate::set_translate(app, !on);
+            }
             "open" => crate::show_main(app),
             "quit" => app.exit(0),
             _ => {}
         })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
+        .on_tray_icon_event(|tray, event| match event {
+            TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 rect,
                 ..
-            } = event
-            {
-                toggle_widget(tray.app_handle(), rect);
-            }
+            } => toggle_widget(tray.app_handle(), rect),
+            // Windows users double-click tray icons to open the app.
+            TrayIconEvent::DoubleClick {
+                button: MouseButton::Left,
+                ..
+            } => crate::show_main(tray.app_handle()),
+            _ => {}
         })
         .build(app)?;
     app.manage(TrayItems {
         toggle,
+        translate,
         hidden_at: Mutex::new(None),
     });
     Ok(())
@@ -95,6 +119,13 @@ pub fn update(app: &AppHandle, status: Status) {
     }
 }
 
+/// Show whether Live Translate is on in the tray menu.
+pub fn update_translate(app: &AppHandle, on: bool) {
+    if let Some(items) = app.try_state::<TrayItems>() {
+        let _ = items.translate.set_checked(on);
+    }
+}
+
 /// Show the widget at the tray icon with a hint, the first time the main window closes.
 pub fn show_hint(app: &AppHandle) {
     show_widget(app);
@@ -113,6 +144,37 @@ pub fn show_widget(app: &AppHandle) {
             toggle_widget(app, rect);
         }
     }
+}
+
+/// Fit the widget's height to its content (logical pixels). The edge next to the tray stays
+/// where it is: the bottom above a Windows taskbar, the top below the macOS menu bar.
+pub fn fit_widget(app: &AppHandle, height: f64) {
+    let Some(window) = app.get_webview_window("widget") else {
+        return;
+    };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let target = (height.clamp(240.0, 760.0) * scale).round() as u32;
+    let (Ok(size), Ok(position)) = (window.outer_size(), window.outer_position()) else {
+        return;
+    };
+    if size.height == target {
+        return;
+    }
+    let above_tray = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let area = m.work_area();
+            let middle = f64::from(area.position.y) + f64::from(area.size.height) / 2.0;
+            f64::from(position.y) + f64::from(size.height) / 2.0 > middle
+        })
+        .unwrap_or(false);
+    if above_tray && window.is_visible().unwrap_or(false) {
+        let y = position.y + size.height as i32 - target as i32;
+        let _ = window.set_position(PhysicalPosition::new(position.x, y));
+    }
+    let _ = window.set_size(tauri::PhysicalSize::new(size.width, target));
 }
 
 /// The widget lost focus: hide it.

@@ -48,7 +48,7 @@ No account. No cloud. No subscription. No minute limits. Your voice never leaves
 | 🪶 **Light** | The default engine, DeepFilterNet 3, needs about 6% of one CPU core. Your laptop stays cool and quiet. |
 | ⚡ **Real time** | 10–20 ms frames, about 60 ms from your microphone to your call. |
 | 🎙️ **Works everywhere** | One virtual microphone for every app. A tray and menu bar widget to switch it on and off. |
-| 🎚️ **Two engines** | DeepFilterNet 3 (light, commercial use allowed) or NVIDIA Real-time RE-USE (research model, most natural at high settings). Switch any time. |
+| 🎚️ **Two engines** | DeepFilterNet 3 (light, the default) or NVIDIA Real-time RE-USE (most natural at high settings). Switch any time. |
 | 📼 **Studio** | Clean up podcasts, voice notes, interviews and lectures. Drag and drop, compare before and after, save. |
 | 📅 **Meetings** | Google Calendar through its private iCal address. Hush is ready before your call is. |
 | 🔓 **Open source** | Apache-2.0 app and engine. Read every line. |
@@ -193,9 +193,8 @@ the best.
 
 - **Hush leads every metric.** DeepFilterNet 3 has the best PESQ, STOI and SI-SDR at about
   6% of a core; RE-USE with 8 layers has the most natural sound by DNSMOS.
-- **Why two engines:** DeepFilterNet 3 is light, accurate and MIT/Apache-licensed, so it is
-  the default and fine for work. RE-USE is NVIDIA's research model with a noncommercial
-  license and needs a faster CPU, for people who want its sound.
+- **Why two engines:** DeepFilterNet 3 is light and accurate, so it is the default. RE-USE
+  needs a faster CPU, for people who want its sound.
 - **Both are reproduced faithfully.** Hush's RE-USE matches NVIDIA's published PESQ (2.77
   against 2.76) and NVIDIA's GPU output at 100+ dB. DeepFilterNet 3 runs the authors'
   own libDF code and model.
@@ -262,11 +261,9 @@ Yes. No account, no trial, no minute limits. The code is Apache-2.0.
 <details>
 <summary><b>Can I use it at work?</b></summary>
 
-Yes, with the default engine. The app and the engine are Apache-2.0, and DeepFilterNet 3
-is MIT or Apache-2.0. The optional **NVIDIA RE-USE** model comes with the
-[NVIDIA One-Way Noncommercial License](https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE):
-its weights are for **non-commercial research and educational use**, and Hush asks you to
-accept that before it downloads them.
+Yes. Hush AI and its default engine, DeepFilterNet 3, are open source (Apache-2.0 and MIT).
+The optional NVIDIA engine has its own license terms, which Hush shows before it downloads
+that model. See [License](#license).
 </details>
 
 <details>
@@ -323,7 +320,7 @@ All docs are also on the website at [alshell7.github.io/hush-ai/docs](https://al
 - [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) by Hendrik Schröter: the
   DeepFilterNet 3 model and its Rust inference (MIT or Apache-2.0).
 - [NVIDIA Real-time RE-USE](https://huggingface.co/nvidia/Real-time_RE-USE): the speech
-  enhancement model and weights (NVIDIA One-Way Noncommercial License).
+  enhancement model and weights.
 - [re-use-rs](https://github.com/altunenes/re-use-rs) by altunenes: the Rust port this
   engine grew from (MIT or Apache-2.0).
 - Microsoft's [SysVAD sample](https://github.com/microsoft/Windows-driver-samples) (MS-PL)
@@ -340,4 +337,11 @@ NVIDIA, the DeepFilterNet authors, VB-Audio, Krisp, Adobe, Google or any app nam
 
 ## License
 
-Code: [Apache-2.0](LICENSE). Third-party parts and the models: see [NOTICE](NOTICE).
+- **Hush AI** (app, engine, drivers): [Apache-2.0](LICENSE).
+- **DeepFilterNet 3** model and inference: MIT or Apache-2.0, by Hendrik Schröter.
+- **NVIDIA Real-time RE-USE** weights: the
+  [NVIDIA One-Way Noncommercial License](https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE),
+  for non-commercial research and educational use; NVIDIA and its affiliates may use them
+  commercially. Hush downloads them only after you agree to those terms.
+
+Other third-party parts: see [NOTICE](NOTICE).

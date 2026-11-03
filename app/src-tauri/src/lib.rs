@@ -6,6 +6,7 @@ mod mictest;
 mod model;
 mod settings;
 mod studio;
+mod translate;
 mod tray;
 mod vmic;
 
@@ -90,6 +91,15 @@ pub fn show_main(app: &AppHandle) {
     }
     if let Some(window) = app.get_webview_window("widget") {
         let _ = window.hide();
+    }
+}
+
+/// Turn Live Translate on or off. It needs noise cancellation, so it turns that on too.
+pub fn set_translate(app: &AppHandle, on: bool) {
+    let translator = app.state::<Arc<translate::Translator>>();
+    translator.set_on(app, on);
+    if on && translator.info().on && !app.state::<AppState>().settings().enabled {
+        set_enabled(app, true);
     }
 }
 
@@ -413,6 +423,12 @@ fn calendar_join(app: AppHandle, id: String) -> Reply<()> {
         .map_err(|e| e.to_string())
 }
 
+/// The widget's content changed height.
+#[tauri::command]
+fn widget_fit(app: AppHandle, height: f64) {
+    tray::fit_widget(&app, height);
+}
+
 #[tauri::command]
 fn open_main(app: AppHandle) {
     show_main(&app);
@@ -467,7 +483,9 @@ fn selftest_fixture(app: AppHandle, kind: String) -> Reply<Option<String>> {
             Ok(Some(path.display().to_string()))
         }
         "save" => Ok(Some(dir.join("selftest-clean.wav").display().to_string())),
-        "ical" => Ok(std::env::var("HUSH_TEST_ICAL").ok().filter(|v| !v.is_empty())),
+        "ical" => Ok(std::env::var("HUSH_TEST_ICAL")
+            .ok()
+            .filter(|v| !v.is_empty())),
         _ => Err(format!("Unknown fixture {kind}")),
     }
 }
@@ -524,6 +542,7 @@ pub fn run() {
             app.manage(Studio::default());
             Studio::startup(handle);
             app.manage(Calendar::new(handle));
+            app.manage(Arc::new(translate::Translator::new(handle)));
             let engine = Engine::new(handle.clone());
             app.manage(engine.clone());
             tray::create(handle)?;
@@ -579,6 +598,7 @@ pub fn run() {
             calendar_refresh,
             calendar_join,
             open_main,
+            widget_fit,
             quit,
             selftest_mode,
             selftest_fixture,

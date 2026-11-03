@@ -177,11 +177,11 @@ function ModelStep({ onNext }: { onNext: () => void }) {
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/70 p-3.5 text-[13px] leading-snug text-ink-2" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#1e1b18]" checked={agreed} disabled={state === "downloading" || state === "done"} onChange={(e) => setAgreed(e.target.checked)} />
         <span>
-          I accept the{" "}
-          <a className="link" onClick={(e) => (e.preventDefault(), openUrl("https://huggingface.co/nvidia/Real-time_RE-USE"))}>
-            NVIDIA One-Way Noncommercial License
-          </a>{" "}
-          of the model weights: non-commercial research and educational use.
+          I agree to the{" "}
+          <a className="link" onClick={(e) => (e.preventDefault(), openUrl("https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE"))}>
+            model's license terms
+          </a>
+          .
         </span>
       </label>
       <div className="flex items-center gap-3">
