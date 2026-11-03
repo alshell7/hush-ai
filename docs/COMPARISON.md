@@ -2,22 +2,26 @@
 
 [Home](../README.md) · [Performance](PERFORMANCE.md) · [Accuracy](ACCURACY.md)
 
-This page compares the speech quality of Hush with two other real-time noise suppressors:
-DeepFilterNet 3 and RNNoise. All three ran on the same 824 noisy recordings. We scored each
-output against the clean recording. We did not train or tune any model.
+This page compares the speech quality of Hush's two engines, NVIDIA RE-USE and DeepFilterNet 3,
+with the official DeepFilterNet 3 binary and RNNoise. All ran on the same 824 noisy
+recordings. We scored each output against the clean recording. We did not train or tune any
+model.
 
 ## Summary
 
+- **Hush now runs DeepFilterNet 3 (the "Efficient" engine and the new default) with the
+  official scores.** Its output equals the official `deep-filter` binary on all 824 files to
+  within 16-bit rounding, and every metric matches to 0.001.
 - **DeepFilterNet 3 scores higher than Hush Light on every metric.** Hush Light is the
-  app default. The largest gap is in PESQ: 3.10 against 2.61. The smallest is DNSMOS SIG,
-  where the gap is within the noise of the measurement.
+  lightest RE-USE setting. The largest gap is in PESQ: 3.10 against 2.61. The smallest is
+  DNSMOS SIG, where the gap is within the noise of the measurement.
 - **With 8 layers, RE-USE has the best DNSMOS scores**, but DeepFilterNet 3 still has the best
   PESQ, STOI, ESTOI and SI-SDR.
 - **Every RE-USE setting scores higher than RNNoise on every metric.**
 - **Hush matches NVIDIA's published scores.** At 16 kHz with 8 layers, our scores are within
   0.01 PESQ and 0.1 dB SI-SDR of the paper.
-- **Hush uses much more CPU.** On this laptop, Hush Light needs 13 to 15 times the CPU time
-  of DeepFilterNet 3.
+- **RE-USE uses much more CPU.** On this laptop, Hush Light needs 13 to 15 times the CPU time
+  of DeepFilterNet 3, in Hush or in the official binary.
 
 ## What we tested
 
@@ -26,11 +30,13 @@ output against the clean recording. We did not train or tune any model.
 | RE-USE via Hush, Light | hush-core 1.0.0, `enhance_dir` example; NVIDIA weights rev. 4c0c186 | 16 kHz | 3 layers, look-ahead 0 (app default) |
 | RE-USE via Hush, Studio | same | 48 kHz | 3 layers, look-ahead 0 |
 | RE-USE via Hush, 8 layers | same | 16 kHz | 8 layers, look-ahead 0 (NVIDIA's paper setting) |
+| DeepFilterNet 3 via Hush | hush-core, `enhance_dir` example; libDF 0.5.6 with tract 0.19; `DeepFilterNet3_onnx.tar.gz` from tag v0.5.6 | 48 kHz | the `deep-filter` defaults (below); 30 ms delay removed |
 | DeepFilterNet 3 | official `deep-filter` 0.5.6 binary for Windows | 48 kHz | defaults: no post-filter, no attenuation limit |
 | RNNoise | `pyrnnoise` 0.4.5 wheel: xiph/rnnoise at commit 70f1d25, model `0a8755f8` | 48 kHz | library defaults |
 | Noisy | the unprocessed input | – | – |
 
-Hush ran in the same way as live audio: 1000-sample chunks, one stream per file.
+Hush ran in the same way as live audio: 1000-sample chunks, one stream per file. Both
+DeepFilterNet 3 rows use the same model file; the binary contains it.
 DeepFilterNet ran as one process per file, because the binary keeps its state between files.
 
 ## Method
@@ -65,17 +71,20 @@ Mean ± 95% confidence interval. **Bold**: best processed system in the column. 
 | RE-USE via Hush, Light (16 kHz, 3 layers) | 2.61 ±0.04 | 0.934 ±0.004 | 0.848 ±0.007 | 18.0 ±0.2 | 3.43 ±0.01 | 4.04 ±0.01 | 3.16 ±0.02 |
 | RE-USE via Hush, Studio (48 kHz, 3 layers) | 2.70 ±0.04 | 0.935 ±0.004 | 0.850 ±0.007 | 16.9 ±0.2 | 3.41 ±0.01 | 4.03 ±0.01 | 3.13 ±0.02 |
 | RE-USE via Hush, 16 kHz, 8 layers | 2.77 ±0.04 | 0.938 ±0.004 | 0.859 ±0.007 | 18.5 ±0.2 | **3.48** ±0.01 | **4.10** ±0.01 | **3.23** ±0.01 |
-| DeepFilterNet 3 (48 kHz) | **3.10** ±0.04 | **0.945** ±0.003 | **0.864** ±0.006 | **19.0** ±0.2 | 3.43 ±0.01 | 4.08 ±0.01 | 3.18 ±0.02 |
+| DeepFilterNet 3 via Hush (48 kHz) | **3.10** ±0.04 | **0.945** ±0.003 | **0.864** ±0.006 | **19.0** ±0.2 | 3.44 ±0.01 | 4.08 ±0.01 | 3.18 ±0.02 |
+| DeepFilterNet 3, official binary (48 kHz) | **3.10** ±0.04 | **0.945** ±0.003 | **0.864** ±0.006 | **19.0** ±0.2 | 3.43 ±0.01 | 4.08 ±0.01 | 3.18 ±0.02 |
 | RNNoise (48 kHz) | 2.11 ±0.04 | 0.890 ±0.006 | 0.783 ±0.009 | 12.3 ±0.2 | 3.29 ±0.02 | 3.85 ±0.02 | 2.94 ±0.02 |
 | Clean reference | – | – | – | – | 3.51 ±0.01 | 4.04 ±0.01 | 3.22 ±0.01 |
 
-Paired difference, RE-USE minus DeepFilterNet 3 (negative: DeepFilterNet 3 is better):
+Paired difference, Hush minus the official DeepFilterNet 3 binary (negative: the binary is
+better):
 
-| RE-USE setting | PESQ-WB | STOI | ESTOI | SI-SDR (dB) | SIG | BAK | OVRL |
+| Hush engine and setting | PESQ-WB | STOI | ESTOI | SI-SDR (dB) | SIG | BAK | OVRL |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Light | −0.49 ±0.02 | −0.011 ±0.002 | −0.016 ±0.002 | −1.03 ±0.11 | −0.007 ±0.007 | −0.036 ±0.007 | −0.022 ±0.008 |
-| Studio | −0.41 ±0.02 | −0.010 ±0.001 | −0.014 ±0.002 | −2.08 ±0.14 | −0.025 ±0.007 | −0.048 ±0.008 | −0.046 ±0.008 |
-| 16 kHz, 8 layers | −0.34 ±0.02 | −0.007 ±0.002 | −0.006 ±0.002 | −0.46 ±0.09 | +0.046 ±0.007 | +0.022 ±0.005 | +0.055 ±0.008 |
+| DeepFilterNet 3 | −0.000 ±0.000 | +0.000 ±0.000 | +0.000 ±0.000 | +0.000 ±0.000 | +0.001 ±0.000 | +0.000 ±0.000 | +0.001 ±0.000 |
+| RE-USE Light | −0.49 ±0.02 | −0.011 ±0.002 | −0.016 ±0.002 | −1.03 ±0.11 | −0.007 ±0.007 | −0.036 ±0.007 | −0.022 ±0.008 |
+| RE-USE Studio | −0.41 ±0.02 | −0.010 ±0.001 | −0.014 ±0.002 | −2.08 ±0.14 | −0.025 ±0.007 | −0.048 ±0.008 | −0.046 ±0.008 |
+| RE-USE 16 kHz, 8 layers | −0.34 ±0.02 | −0.007 ±0.002 | −0.006 ±0.002 | −0.46 ±0.09 | +0.046 ±0.007 | +0.022 ±0.005 | +0.055 ±0.008 |
 
 PESQ-WB by input SNR:
 
@@ -85,7 +94,8 @@ PESQ-WB by input SNR:
 | Hush Light | 2.22 | 2.54 | 2.70 | 2.98 |
 | Hush Studio | 2.28 | 2.63 | 2.80 | 3.09 |
 | Hush 16 kHz, 8 layers | 2.37 | 2.72 | 2.86 | 3.12 |
-| DeepFilterNet 3 | **2.57** | **3.06** | **3.25** | **3.55** |
+| Hush DeepFilterNet 3 | **2.57** | **3.06** | **3.25** | **3.55** |
+| DeepFilterNet 3, official binary | **2.57** | **3.06** | **3.25** | **3.55** |
 | RNNoise | 1.75 | 2.07 | 2.19 | 2.43 |
 
 ## Published results
@@ -115,6 +125,10 @@ Notes on these numbers:
 
 ## Observations
 
+- **Hush's DeepFilterNet 3 engine is the official model, unchanged.** Its 48 kHz output equals
+  the `deep-filter` output on every file to within one step of 16-bit rounding (the binary
+  writes 16-bit files; Hush writes float). The binary keeps a 30 ms delay in its files; Hush
+  removes it. The metrics differ by at most 0.001 on average.
 - **Hush reproduces NVIDIA's paper.** With 8 layers at 16 kHz we measured PESQ 2.77, ESTOI
   0.859 and SI-SDR 18.5 dB. The paper reports 2.76, 0.86 and 18.6 dB.
 - **We could not reproduce the DeepFilterNet3 row in the RE-USE paper.** We measured PESQ 3.10
@@ -132,13 +146,15 @@ Notes on these numbers:
 - **RNNoise improves the least.** It removes some noise (DNSMOS BAK 3.13 → 3.85), but its
   STOI and ESTOI are slightly below the noisy input.
 - **Delay:** see the table below. At look-ahead 0, RE-USE and DeepFilterNet 3 have the same
-  algorithmic latency: 40 ms. The Hush app adds one 20 ms output frame, so Hush adds about
-  60 ms. DeepFilterNet 3 has the higher quality at this latency on this test set.
+  algorithmic latency: 40 ms. The Hush app adds 20 ms of output prefill to both, so each
+  engine adds about 60 ms. DeepFilterNet 3 has the higher quality at this latency on this
+  test set.
 
 | System | Frame step | Delay we measured in the output file | Algorithmic latency |
 | --- | ---: | ---: | ---: |
 | RE-USE via Hush | 20 ms | 0 ms: the engine removes it | 40 ms ([paper](https://arxiv.org/abs/2606.25621), Table I); about 60 ms in the app ([Architecture](ARCHITECTURE.md#delay-budget)) |
-| DeepFilterNet 3 | 10 ms | 30.0 ms (1440 samples at 48 kHz) | 40 ms ([paper](https://arxiv.org/abs/2305.08227)): 20 ms window + 2 look-ahead frames |
+| DeepFilterNet 3, official binary | 10 ms | 30.0 ms (1440 samples at 48 kHz) | 40 ms ([paper](https://arxiv.org/abs/2305.08227)): 20 ms window + 2 look-ahead frames |
+| DeepFilterNet 3 via Hush | 10 ms | 0 ms: the engine removes the same 30 ms | 40 ms; about 60 ms in the app with a 20 ms output prefill |
 | RNNoise (tested library) | 10 ms | 20.0 ms (960 samples at 48 kHz) | about 30 ms: 20 ms + one 10 ms frame |
 
 For DeepFilterNet 3, the measured 30 ms plus one 10 ms frame gives the published 40 ms.
@@ -175,19 +191,24 @@ real time. The CPU column is CPU time divided by audio time.
 
 | System | Threads | Time | CPU |
 | --- | ---: | ---: | ---: |
-| Hush Light (16 kHz, 3 layers) | 1 | 0.79 | 0.79 |
-|  | 2 | 0.45 | 0.84 |
-| Hush Studio (48 kHz, 3 layers) | 1 | 2.23 | 2.22 |
-|  | 2 | 1.10 | 2.04 |
-| Hush 16 kHz, 8 layers | 1 | 1.45 | 1.46 |
-|  | 2 | 0.84 | 1.59 |
-| DeepFilterNet 3 (`deep-filter`) | 1 | 0.054 | 0.059 |
-| RNNoise (loop in Python) | 1 | 0.049 | 0.049 |
+| Hush, DeepFilterNet 3 | 1 | 0.071 | 0.070 |
+| DeepFilterNet 3 (`deep-filter`) | 1 | 0.069 | 0.076 |
+| Hush Light (16 kHz, 3 layers) | 1 | 1.08 | 1.06 |
+|  | 2 | 0.46 | 0.88 |
+| Hush Studio (48 kHz, 3 layers) | 1 | 3.17 | 3.12 |
+|  | 2 | 1.17 | 2.21 |
+| Hush 16 kHz, 8 layers | 1 | 1.66 | 1.65 |
+|  | 2 | 0.98 | 1.87 |
+| RNNoise (loop in Python) | 1 | 0.052 | 0.051 |
 
-Hush threads are set with `RAYON_NUM_THREADS`. The `deep-filter` CPU time includes model
-loading; its CPU time is close to its processing time, so it used one thread. The RNNoise
-time includes one Python call per 10 ms frame. [Performance](PERFORMANCE.md) has the Hush
-frame times measured on idle machines.
+This run (2026-11-03, with the DeepFilterNet 3 engine) had more background load than the
+first one. The first run measured 0.79 CPU for Hush Light on 1 thread and 0.059 for
+`deep-filter`: Hush Light needed 13 to 15 times the CPU of DeepFilterNet 3 in both runs.
+
+Hush threads are set with `RAYON_NUM_THREADS`; DeepFilterNet 3 always uses one. The
+`deep-filter` CPU time includes model loading; Hush's excludes it. The RNNoise time includes
+one Python call per 10 ms frame. [Performance](PERFORMANCE.md) has the frame times and the
+live CPU use.
 
 ## Reproduce
 
@@ -202,8 +223,8 @@ cargo build --release -p hush-core --example enhance_dir
 $WORK/venv/Scripts/python -I benchmarks/compare/compare.py --work $WORK --jobs 8 all
 ```
 
-[`compare.py`](../benchmarks/compare/compare.py) downloads the data, the `deep-filter` binary
-and the DNSMOS model, and checks their SHA-256. Then it runs every system, scores every file
+[`compare.py`](../benchmarks/compare/compare.py) downloads the data, the `deep-filter` binary,
+the DeepFilterNet 3 model and the DNSMOS model, and checks their SHA-256. Then it runs every system, scores every file
 and writes [`results.json`](../benchmarks/compare/results.json). Each step is also a
 sub-command (`download`, `prepare`, `process`, `score`, `timing`, `report`). The full run
 took about 2.5 hours on this laptop. The `deep-filter` binary and the RNNoise wheel in the

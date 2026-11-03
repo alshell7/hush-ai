@@ -4,9 +4,11 @@
 //! thread and writes to the Hush AI Microphone. This module starts and stops it, restarts it
 //! when settings change, retries after device errors and sends state and meter events to the
 //! windows. It also builds the model that Studio uses for files.
-use crate::audio::audio_io::{devices, Message, Selection, Sender, Settings as AudioSettings};
+use crate::audio::audio_io::{
+    devices, Message, ModelKind, Selection, Sender, Settings as AudioSettings,
+};
 use crate::audio::live_io::{self, control::StopReason, LiveSession, StopReport};
-use crate::settings::Settings;
+use crate::settings::{Engine as Model, Settings};
 use hush_core::live::LiveMeters;
 use serde::Serialize;
 use std::{
@@ -34,6 +36,8 @@ pub enum Status {
 pub struct EngineState {
     pub status: Status,
     pub message: Option<String>,
+    /// The model of the current or last session.
+    pub engine: Model,
     pub threads: usize,
     pub input_rate: u32,
     pub model_rate: u32,
@@ -82,9 +86,10 @@ fn explain(error: &str) -> String {
         "Your microphone is not available. Check that it is connected, or choose another one."
             .into()
     } else if lower.contains("safetensors")
+        || lower.contains("deepfilternet model")
         || lower.contains("model") && lower.contains("no such file")
     {
-        "The voice model is missing. Download it in Settings.".into()
+        "The voice model is missing or damaged. Download it again in Settings.".into()
     } else {
         error.lines().next().unwrap_or(error).to_string()
     }
@@ -113,6 +118,7 @@ impl Engine {
                 state: EngineState {
                     status: Status::Off,
                     message: None,
+                    engine: Model::DeepFilter,
                     threads: 0,
                     input_rate: 0,
                     model_rate: 0,
@@ -181,7 +187,8 @@ impl Engine {
         let app = &self.app;
         let settings = app.state::<crate::AppState>().settings();
         let data_dir = app.path().app_data_dir().unwrap_or_default();
-        let Some(model) = crate::model::find(&data_dir) else {
+        inner.state.engine = settings.engine;
+        let Some(model) = crate::model::find(&data_dir, settings.engine) else {
             inner.state.status = Status::Error;
             inner.state.message = Some("Download the voice model to turn on Hush AI.".into());
             self.publish(inner);
@@ -350,8 +357,12 @@ fn output_selection(settings: &Settings) -> Selection {
 }
 
 pub fn audio_settings(settings: &Settings, model: PathBuf, virtual_mic: bool) -> AudioSettings {
-    let (rate, layers) = settings.quality.model();
+    let (kind, (rate, layers)) = match settings.engine {
+        Model::DeepFilter => (ModelKind::DeepFilter, (hush_core::DEEP_FILTER_RATE, 0)),
+        Model::Reuse => (ModelKind::Reuse, settings.quality.model()),
+    };
     AudioSettings {
+        kind,
         model,
         rate,
         layers,
@@ -369,23 +380,24 @@ pub fn audio_settings(settings: &Settings, model: PathBuf, virtual_mic: bool) ->
     }
 }
 
-/// The voice model for Studio: full band at `rate`, with a few threads, off the audio path.
+/// The voice model for Studio: the chosen engine at full band (`rate`), with a few threads,
+/// off the audio path.
 pub struct OfflineModel {
-    denoiser: hush_core::Denoiser,
+    model: Box<dyn hush_core::Enhancer>,
     label: &'static str,
 }
 
 impl OfflineModel {
     pub fn process_into(&mut self, input: &[f32], out: &mut Vec<f32>) -> eyre::Result<()> {
-        for chunk in input.chunks(self.denoiser.frame()) {
-            self.denoiser.process_into(chunk, out)?;
+        for chunk in input.chunks(self.model.frame()) {
+            self.model.process_into(chunk, out)?;
         }
         Ok(())
     }
 
     /// The samples still owed for the input so far.
     pub fn flush(&mut self) -> eyre::Result<Vec<f32>> {
-        self.denoiser.flush()
+        self.model.flush()
     }
 
     pub fn label(&self) -> &'static str {
@@ -394,30 +406,43 @@ impl OfflineModel {
 }
 
 pub fn offline_model(app: &AppHandle, rate: u32) -> eyre::Result<OfflineModel> {
+    let settings = app.state::<crate::AppState>().settings();
     let data_dir = app.path().app_data_dir()?;
-    let model = crate::model::find(&data_dir)
+    let path = crate::model::find(&data_dir, settings.engine)
         .ok_or_else(|| eyre::eyre!("Download the voice model first"))?;
-    let (_, layers) = crate::settings::Quality::Studio.model();
-    let mut denoiser = hush_core::Denoiser::with_config(
-        &model,
-        hush_core::Config {
-            layers,
-            sample_rate: rate,
-            look_ahead: 0,
-        },
-    )?;
-    let threads = thread::available_parallelism()
-        .map_or(2, |n| n.get() / 2)
-        .clamp(1, 4);
-    denoiser.set_worker_threads_with_options(
-        threads,
-        hush_core::WorkerPlacement::Unrestricted,
-        hush_core::WorkerScheduling::OsDefault,
-    )?;
-    Ok(OfflineModel {
-        denoiser,
-        label: "NVIDIA RE-USE · 48 kHz",
-    })
+    match settings.engine {
+        Model::DeepFilter => {
+            eyre::ensure!(rate == hush_core::DEEP_FILTER_RATE, "DeepFilterNet 3 runs at 48 kHz");
+            let model = hush_core::DeepFilter::load(&path)?;
+            Ok(OfflineModel {
+                model: Box::new(model),
+                label: "DeepFilterNet 3",
+            })
+        }
+        Model::Reuse => {
+            let (_, layers) = crate::settings::Quality::Studio.model();
+            let mut model = hush_core::Denoiser::with_config(
+                &path,
+                hush_core::Config {
+                    layers,
+                    sample_rate: rate,
+                    look_ahead: 0,
+                },
+            )?;
+            let threads = thread::available_parallelism()
+                .map_or(2, |n| n.get() / 2)
+                .clamp(1, 4);
+            model.set_worker_threads_with_options(
+                threads,
+                hush_core::WorkerPlacement::Unrestricted,
+                hush_core::WorkerScheduling::OsDefault,
+            )?;
+            Ok(OfflineModel {
+                model: Box::new(model),
+                label: "NVIDIA RE-USE · 48 kHz",
+            })
+        }
+    }
 }
 
 /// Reads meters 20 times per second while a window shows them; otherwise sleeps.

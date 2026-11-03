@@ -4,7 +4,7 @@
 //! runs on the inference worker, with continuous filter history. `push` and `read`
 //! do not allocate, lock, perform I/O, or run inference. Start and stop on a control thread.
 
-use crate::Denoiser;
+use crate::Enhancer;
 use eyre::{ensure, Result};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::{
@@ -278,8 +278,10 @@ pub struct LiveWorker {
 impl LiveWorker {
     /// Start with bounded input/output capacities in samples. A few frames of buffering provides
     /// scheduling headroom without allowing unbounded latency. The model is reset on input gaps.
-    pub fn start(
-        denoiser: Denoiser,
+    /// Any [`Enhancer`] works: [`Denoiser`](crate::Denoiser), [`DeepFilter`](crate::DeepFilter)
+    /// or a `Box<dyn Enhancer>`.
+    pub fn start<E: Enhancer + 'static>(
+        denoiser: E,
         input_capacity: usize,
         output_capacity: usize,
     ) -> Result<(Self, LiveInput, LiveOutput)> {
@@ -288,8 +290,8 @@ impl LiveWorker {
 
     /// As [`start`](Self::start), optionally passing captured frames through unchanged. The mode
     /// is fixed for the lifetime of the worker; stop and create a new worker to change it.
-    pub fn start_with_bypass(
-        denoiser: Denoiser,
+    pub fn start_with_bypass<E: Enhancer + 'static>(
+        denoiser: E,
         input_capacity: usize,
         output_capacity: usize,
         bypass: bool,
@@ -311,8 +313,8 @@ impl LiveWorker {
     /// inference run outside callbacks. Each unequal-rate conversion adds 16 source samples of
     /// filter delay.
     /// This handles fixed nominal rates, not drift between independent hardware clocks.
-    pub fn start_at_rates(
-        denoiser: Denoiser,
+    pub fn start_at_rates<E: Enhancer + 'static>(
+        denoiser: E,
         input_rate: u32,
         output_rate: u32,
         input_capacity: usize,
@@ -339,8 +341,8 @@ impl LiveWorker {
     /// with a bounded +/-1000 ppm output resampler. Requires at least four output frames of
     /// capacity. Adds 16 model-rate samples of filter delay even at equal nominal rates.
     /// Fixed-rate APIs remain deterministic and do not enable clock tracking.
-    pub fn start_clocked(
-        denoiser: Denoiser,
+    pub fn start_clocked<E: Enhancer + 'static>(
+        denoiser: E,
         input_rate: u32,
         output_rate: u32,
         input_capacity: usize,
@@ -359,9 +361,10 @@ impl LiveWorker {
     }
 
     /// As [`start_clocked`](Self::start_clocked) with 1..=3 output frames of prefill.
-    /// Each frame of prefill adds one frame (20 ms) of latency and of scheduling headroom.
-    pub fn start_clocked_with_prefill(
-        denoiser: Denoiser,
+    /// Each frame of prefill adds one model frame (20 ms for RE-USE, 10 ms for DeepFilterNet)
+    /// of latency and of scheduling headroom.
+    pub fn start_clocked_with_prefill<E: Enhancer + 'static>(
+        denoiser: E,
         input_rate: u32,
         output_rate: u32,
         input_capacity: usize,
@@ -385,8 +388,8 @@ impl LiveWorker {
     }
 
     /// `prefill_frames` > 0 enables clocked output with that much prefill.
-    fn start_impl(
-        mut denoiser: Denoiser,
+    fn start_impl<E: Enhancer + 'static>(
+        mut denoiser: E,
         input_rate: u32,
         output_rate: u32,
         input_capacity: usize,

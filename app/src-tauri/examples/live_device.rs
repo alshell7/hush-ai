@@ -13,7 +13,7 @@ mod live_io;
 #[path = "../src/audio/pulse.rs"]
 mod pulse;
 
-use audio_io::{Message, Settings};
+use audio_io::{Message, ModelKind, Settings};
 use eyre::{bail, ensure, eyre, Result};
 use hush_core::{WorkerPlacement, WorkerScheduling};
 use serde_json::json;
@@ -25,10 +25,12 @@ use std::{
 
 const HELP: &str = "Physical headphone monitoring; no microphone audio is saved.
 live_device --list
-live_device --input NAME --output NAME [--model PATH] [--rate 48000]
+live_device --input NAME --output NAME [--engine reuse|deepfilter] [--model PATH] [--rate 48000]
   [--layers 3] [--look-ahead 0] [--threads 12] [--seconds 30] [--report-seconds 0]
   [--scheduling os-default|windows-audio] [--bypass] [--virtual-mic] [--expect-device-loss]
 Use exact endpoint names from --list. Seconds must be 1..=14400. Threads 0 is Automatic.
+--engine deepfilter runs DeepFilterNet 3 (48 kHz, one thread; HUSH_DFN_MODEL or --model);
+--rate, --layers, --look-ahead and --threads are then ignored.
 --report-seconds N prints one JSON line every N seconds: memory, CPU and audio counters.
 --virtual-mic sends output to the Hush AI Microphone; --output is then ignored.
 With --expect-device-loss, unplug the named device after Monitoring appears; a normal timed stop fails.
@@ -43,6 +45,7 @@ fn main() -> Result<()> {
     }
     // Device discovery can block in a driver too. A process watchdog bounds that operation.
     let mut settings = Settings {
+        kind: ModelKind::Reuse,
         model: PathBuf::from(
             std::env::var("HUSH_MODEL").unwrap_or_else(|_| "models/model.safetensors".into()),
         ),
@@ -82,6 +85,21 @@ fn main() -> Result<()> {
                 .ok_or_else(|| eyre!("Missing value for {key}"))?;
             match key.as_str() {
                 "--input" => input_name = Some(value.clone()),
+                "--engine" => {
+                    settings.kind = match value.as_str() {
+                        "reuse" => ModelKind::Reuse,
+                        "deepfilter" => ModelKind::DeepFilter,
+                        _ => {
+                            bail!("Unknown engine: {value}");
+                        }
+                    };
+                    if settings.kind == ModelKind::DeepFilter {
+                        settings.rate = hush_core::DEEP_FILTER_RATE;
+                        if let Ok(path) = std::env::var("HUSH_DFN_MODEL") {
+                            settings.model = path.into();
+                        }
+                    }
+                }
                 "--output" => output_name = Some(value.clone()),
                 "--model" => settings.model = value.into(),
                 "--rate" => settings.rate = value.parse()?,
@@ -142,6 +160,7 @@ fn main() -> Result<()> {
     let output = outputs.named(&output_name)?;
     let mut report = json!({
         "input": input_name, "output": output_name,
+        "engine": format!("{:?}", settings.kind),
         "requested_model_rate": settings.rate, "layers": settings.layers,
         "look_ahead": settings.look_ahead, "threads": settings.threads,
         "worker_placement": "unrestricted",

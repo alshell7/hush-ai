@@ -14,7 +14,7 @@ use calendar::{Calendar, CalendarInfo};
 use engine::{Engine, EngineState, Status};
 use mictest::MicTest;
 use serde::Serialize;
-use settings::Settings;
+use settings::{Engine as Model, Settings};
 use std::{
     collections::HashSet,
     path::PathBuf,
@@ -63,7 +63,7 @@ fn text(error: eyre::Report) -> String {
 #[serde(rename_all = "camelCase")]
 struct Snapshot {
     settings: Settings,
-    model: model::ModelInfo,
+    models: model::Models,
     engine: EngineState,
     calendar: CalendarInfo,
     platform: &'static str,
@@ -120,7 +120,7 @@ pub fn set_enabled(app: &AppHandle, on: bool) {
 fn snapshot(app: AppHandle, state: tauri::State<AppState>) -> Snapshot {
     Snapshot {
         settings: state.settings(),
-        model: model::info(&state.data_dir),
+        models: model::all(&state.data_dir),
         engine: app.state::<Arc<Engine>>().state(),
         calendar: app.state::<Arc<Calendar>>().info(),
         platform: std::env::consts::OS,
@@ -185,16 +185,19 @@ fn update_settings(app: AppHandle, patch: serde_json::Value) -> Reply<Settings> 
     let saved = state.update(|s| *s = next.clone());
     let _ = app.emit("settings", &saved);
     let restart = before.input != saved.input
+        || before.engine != saved.engine
         || before.quality != saved.quality
         || before.threads != saved.threads
         || before.audio_priority != saved.audio_priority;
     if before.calendar_sync != saved.calendar_sync {
         app.state::<Arc<Calendar>>().refresh();
     }
+    let engine = app.state::<Arc<Engine>>().inner().clone();
+    // A session that failed, for example for a model that is not downloaded, tries again too.
+    let failed = saved.enabled && saved.onboarded && engine.state().status == Status::Error;
     if before.enabled != saved.enabled {
         set_enabled(&app, saved.enabled);
-    } else if restart && app.state::<Arc<Engine>>().is_running() {
-        let engine = app.state::<Arc<Engine>>().inner().clone();
+    } else if restart && (engine.is_running() || failed) {
         std::thread::spawn(move || engine.start());
     }
     Ok(saved)
@@ -223,7 +226,7 @@ fn watch_meters(
 }
 
 #[tauri::command]
-async fn model_download(app: AppHandle) -> Reply<model::ModelInfo> {
+async fn model_download(app: AppHandle, engine: Model) -> Reply<model::Models> {
     let state = app.state::<AppState>();
     let cancel = Arc::new(AtomicBool::new(false));
     {
@@ -237,14 +240,28 @@ async fn model_download(app: AppHandle) -> Reply<model::ModelInfo> {
     let data_dir = state.data_dir.clone();
     let events = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        model::download(&data_dir, &cancel, |progress| {
+        model::download(&data_dir, engine, &cancel, |progress| {
             let _ = events.emit("model-progress", progress);
         })
     })
     .await;
     *state.download.lock().unwrap() = None;
     result.map_err(|e| e.to_string())?.map_err(text)?;
-    Ok(model::info(&state.data_dir))
+    let models = model::all(&state.data_dir);
+    let _ = app.emit("models", &models);
+    // Noise cancellation was waiting for this model.
+    let engine_state = app.state::<Arc<Engine>>();
+    let settings = state.settings();
+    if settings.enabled
+        && settings.onboarded
+        && settings.engine == engine
+        && engine_state.state().status == Status::Error
+        && !engine_state.is_running()
+    {
+        let engine = engine_state.inner().clone();
+        std::thread::spawn(move || engine.start());
+    }
+    Ok(models)
 }
 
 #[tauri::command]
@@ -255,11 +272,15 @@ fn model_cancel(state: tauri::State<AppState>) {
 }
 
 #[tauri::command]
-fn model_remove(app: AppHandle) -> Reply<model::ModelInfo> {
-    app.state::<Arc<Engine>>().stop();
+fn model_remove(app: AppHandle, engine: Model) -> Reply<model::Models> {
     let state = app.state::<AppState>();
-    model::remove(&state.data_dir).map_err(text)?;
-    Ok(model::info(&state.data_dir))
+    if state.settings().engine == engine {
+        app.state::<Arc<Engine>>().stop();
+    }
+    model::remove(&state.data_dir, engine).map_err(text)?;
+    let models = model::all(&state.data_dir);
+    let _ = app.emit("models", &models);
+    Ok(models)
 }
 
 #[tauri::command]

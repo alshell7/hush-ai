@@ -1,6 +1,9 @@
-//! Enhance many mono wavs with Real-time RE-USE, loading the model once.
+//! Enhance many mono wavs with Real-time RE-USE or DeepFilterNet 3, loading the model once.
 //!
 //! cargo run --release --example enhance_dir -- <in> <out_dir> [layers] [look_ahead] [model.safetensors]
+//!
+//! A model that ends in `.tar.gz` is a DeepFilterNet archive: the wavs must be 48 kHz, and
+//! `layers` and `look_ahead` are ignored.
 //!
 //! `<in>` is a folder of wavs, or a text file with one wav path per line. Every wav must have
 //! the sample rate of the first one. Each file is a fresh stream, fed in the same small chunks
@@ -8,7 +11,7 @@
 //! input sample `i`. For each file, the example prints a tab-separated line:
 //! `file  audio_seconds  wall_seconds  cpu_seconds` (CPU time of the whole process).
 
-use hush_core::{audio, Config, Denoiser};
+use hush_core::{audio, Config, DeepFilter, Denoiser, Enhancer};
 use std::path::Path;
 use std::time::Instant;
 
@@ -33,17 +36,31 @@ fn main() -> eyre::Result<()> {
     std::fs::create_dir_all(out_dir)?;
 
     let (_, sample_rate) = audio::load_wav(&files[0])?;
-    let config = Config {
-        layers,
-        sample_rate,
-        look_ahead,
+    let mut denoiser: Box<dyn Enhancer> = if model.ends_with(".tar.gz") {
+        let model = DeepFilter::load(model)?;
+        eyre::ensure!(
+            sample_rate == model.sample_rate(),
+            "DeepFilterNet needs 48 kHz wavs, not {sample_rate} Hz"
+        );
+        eprintln!(
+            "{} files, DeepFilterNet, {sample_rate} Hz, 1 thread",
+            files.len()
+        );
+        Box::new(model)
+    } else {
+        let config = Config {
+            layers,
+            sample_rate,
+            look_ahead,
+        };
+        let model = Denoiser::with_config(model, config)?;
+        eprintln!(
+            "{} files, {layers} layers, look-ahead {look_ahead}, {sample_rate} Hz, {} worker threads",
+            files.len(),
+            model.worker_threads()
+        );
+        Box::new(model)
     };
-    let mut denoiser = Denoiser::with_config(model, config)?;
-    eprintln!(
-        "{} files, {layers} layers, look-ahead {look_ahead}, {sample_rate} Hz, {} worker threads",
-        files.len(),
-        denoiser.worker_threads()
-    );
 
     for path in &files {
         let (wav, rate) = audio::load_wav(path)?;
@@ -55,7 +72,7 @@ fn main() -> eyre::Result<()> {
         let cpu = cpu_time::ProcessTime::now();
         let mut enhanced = Vec::with_capacity(wav.len());
         for chunk in wav.chunks(CHUNK) {
-            enhanced.extend(denoiser.process(chunk)?);
+            denoiser.process_into(chunk, &mut enhanced)?;
         }
         // Flush also resets the stream, so the next file starts fresh.
         enhanced.extend(denoiser.flush()?);

@@ -16,6 +16,10 @@
         "url": "https://datashare.ed.ac.uk/bitstream/handle/10283/2791/logfiles.zip",
         "sha256": "ab37c41f31bc2b6c204cc10c8e5bb8bde800307fdb49f277e366d986fefc9e39"
       },
+      "DeepFilterNet3_onnx.tar.gz": {
+        "url": "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz",
+        "sha256": "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616"
+      },
       "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe": {
         "url": "https://github.com/Rikorose/DeepFilterNet/releases/download/v0.5.6/deep-filter-0.5.6-x86_64-pc-windows-msvc.exe",
         "sha256": "75e11fa16445f560cb6b021521ddb89e89270d13b83089705d98776f58fd7915"
@@ -40,14 +44,17 @@
   },
   "systems_tested": {
     "hush": {
-      "engine": "hush-core 1.0.0 (this repository), example enhance_dir: 1000-sample chunks, one fresh stream per file, look-ahead 0",
+      "engine": "hush-core (this repository), example enhance_dir: 1000-sample chunks, one fresh stream per file, look-ahead 0",
       "model": "nvidia/Real-time_RE-USE model.safetensors, revision 4c0c186",
       "model_sha256": "6eac4e8cc721f99a22cde7eac3c9f8e2826ced5dc8a4234fd1977de1ec0d3ade",
-      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "deepfilternet3_model": "DeepFilterNet3_onnx.tar.gz from DeepFilterNet tag v0.5.6 (libDF 0.5.6 with tract, deep-filter default settings)",
+      "deepfilternet3_model_sha256": "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616",
+      "rustc": "unknown",
       "commands": {
         "hush_light": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 3 0 models/model.safetensors   # input 16000 Hz",
         "hush_studio": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 3 0 models/model.safetensors   # input 48000 Hz",
-        "hush_16k_8layers": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 8 0 models/model.safetensors   # input 16000 Hz"
+        "hush_16k_8layers": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 8 0 models/model.safetensors   # input 16000 Hz",
+        "hush_dfn3": "RAYON_NUM_THREADS=1 target/release/examples/enhance_dir.exe <list> <out> 0 0 <dl>/dfn/DeepFilterNet3_onnx.tar.gz   # input 48000 Hz"
       }
     },
     "deepfilternet3": {
@@ -539,6 +546,129 @@
         }
       }
     },
+    "hush_dfn3": {
+      "label": "DeepFilterNet 3 via Hush (hush-core, 48 kHz)",
+      "metrics": {
+        "pesq_wb": {
+          "mean": 3.103942554118564,
+          "std": 0.6315399914917464,
+          "ci95": 0.04312144666793921,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 0.9449907223262299,
+          "std": 0.049636524094069996,
+          "ci95": 0.0033891736949999496,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 0.8641295633853868,
+          "std": 0.09437880797369759,
+          "ci95": 0.006444169473746881,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 18.982178990404694,
+          "std": 3.451292850294506,
+          "ci95": 0.2356537077373024,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 3.4359757475875106,
+          "std": 0.2158505538170595,
+          "ci95": 0.014738240285752541,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.0797915942819865,
+          "std": 0.09749550688301858,
+          "ci95": 0.0066569771622684805,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 3.1789187519114632,
+          "std": 0.23326872222046743,
+          "ci95": 0.015927549957316794,
+          "n": 824
+        }
+      },
+      "delay": {
+        "delay_samples_16k": 0,
+        "delay_ms": 0.0,
+        "files_checked": 24,
+        "files_agreeing": 24,
+        "lags_found": [
+          0
+        ]
+      },
+      "by_input_snr": {
+        "2.5 dB": {
+          "pesq_wb": 2.5656,
+          "si_sdr": 16.0234,
+          "dnsmos_ovrl": 3.0993
+        },
+        "7.5 dB": {
+          "pesq_wb": 3.0606,
+          "si_sdr": 18.4716,
+          "dnsmos_ovrl": 3.1855
+        },
+        "12.5 dB": {
+          "pesq_wb": 3.248,
+          "si_sdr": 19.9066,
+          "dnsmos_ovrl": 3.2094
+        },
+        "17.5 dB": {
+          "pesq_wb": 3.5479,
+          "si_sdr": 21.562,
+          "dnsmos_ovrl": 3.2222
+        }
+      },
+      "pesq_failures": 0,
+      "minus_deepfilternet3_paired": {
+        "pesq_wb": {
+          "mean": -0.00028659880739971273,
+          "std": 0.003457431301102736,
+          "ci95": 0.0002360728401481029,
+          "n": 824
+        },
+        "stoi": {
+          "mean": 2.8608121768343066e-06,
+          "std": 0.00022216306272848025,
+          "ci95": 1.5169257355189036e-05,
+          "n": 824
+        },
+        "estoi": {
+          "mean": 4.413030496660621e-05,
+          "std": 0.00041226646876977874,
+          "ci95": 2.8149486628778243e-05,
+          "n": 824
+        },
+        "si_sdr": {
+          "mean": 0.000267058723069779,
+          "std": 0.001610000651461381,
+          "ci95": 0.0001099305794766073,
+          "n": 824
+        },
+        "dnsmos_sig": {
+          "mean": 0.0011236906894526845,
+          "std": 0.002483973725080843,
+          "ci95": 0.00016960531708788188,
+          "n": 824
+        },
+        "dnsmos_bak": {
+          "mean": 4.405516852715687e-05,
+          "std": 0.0021093197063743845,
+          "ci95": 0.00014402400235843962,
+          "n": 824
+        },
+        "dnsmos_ovrl": {
+          "mean": 0.000992140192501241,
+          "std": 0.002653979355138458,
+          "ci95": 0.00018121327352538745,
+          "n": 824
+        }
+      }
+    },
     "deepfilternet3": {
       "label": "DeepFilterNet 3 (deep-filter 0.5.6, 48 kHz)",
       "metrics": {
@@ -702,43 +832,48 @@
     "note": "One process at a time on a shared 8-core x64 laptop (16 logical CPUs) while other work was running; ~30 s clip (first test files joined); median of runs. rtf_wall = processing time / audio time. Hush and RNNoise exclude model loading; DeepFilterNet's rtf_wall is its own log (excludes loading) and its CPU figure includes loading. deep-filter and RNNoise run single-threaded; Hush uses RAYON_NUM_THREADS workers.",
     "runs": {
       "hush_light/threads=1": {
-        "rtf_wall": 0.7927728660986979,
-        "cpu_per_audio_second": 0.7916733644108664,
+        "rtf_wall": 1.0817296254621442,
+        "cpu_per_audio_second": 1.062932004500884,
         "audio_seconds": 31.105
       },
       "hush_light/threads=2": {
-        "rtf_wall": 0.4469924449445427,
-        "cpu_per_audio_second": 0.8378877993891657,
+        "rtf_wall": 0.464455875261212,
+        "cpu_per_audio_second": 0.8750618871564058,
         "audio_seconds": 31.105
       },
       "hush_studio/threads=1": {
-        "rtf_wall": 2.2311203986497348,
-        "cpu_per_audio_second": 2.224320848738145,
+        "rtf_wall": 3.1690821411348655,
+        "cpu_per_audio_second": 3.1199774955794886,
         "audio_seconds": 31.105
       },
       "hush_studio/threads=2": {
-        "rtf_wall": 1.0964507313936667,
-        "cpu_per_audio_second": 2.0449895515190484,
+        "rtf_wall": 1.1714483202057546,
+        "cpu_per_audio_second": 2.209754058832985,
         "audio_seconds": 31.105
       },
       "hush_16k_8layers/threads=1": {
-        "rtf_wall": 1.451956277125864,
-        "cpu_per_audio_second": 1.4627873332261694,
+        "rtf_wall": 1.663587847612924,
+        "cpu_per_audio_second": 1.6526667738305738,
         "audio_seconds": 31.105
       },
       "hush_16k_8layers/threads=2": {
-        "rtf_wall": 0.8394663237421636,
-        "cpu_per_audio_second": 1.5908824947757596,
+        "rtf_wall": 0.9849799067674007,
+        "cpu_per_audio_second": 1.8721877511654075,
+        "audio_seconds": 31.105
+      },
+      "hush_dfn3/threads=1": {
+        "rtf_wall": 0.07096929754058832,
+        "cpu_per_audio_second": 0.070326314097412,
         "audio_seconds": 31.105
       },
       "deepfilternet3": {
-        "rtf_wall": 0.053655393,
-        "cpu_per_audio_second_incl_model_load": 0.058772705352837164,
+        "rtf_wall": 0.06860555,
+        "cpu_per_audio_second_incl_model_load": 0.07585195306220864,
         "audio_seconds": 31.105
       },
       "rnnoise": {
-        "rtf_wall": 0.0490046198385666,
-        "cpu_per_audio_second": 0.04872608905320688,
+        "rtf_wall": 0.05175149654486022,
+        "cpu_per_audio_second": 0.05123774312811445,
         "audio_seconds": 31.105
       }
     }

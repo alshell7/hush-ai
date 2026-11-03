@@ -1,8 +1,8 @@
 """Speech-enhancement quality comparison on the VoiceBank-DEMAND test set.
 
-Systems: NVIDIA Real-time RE-USE as run by the Hush engine (``enhance_dir`` example),
-DeepFilterNet 3 (official ``deep-filter`` 0.5.6 binary), RNNoise (``pyrnnoise`` wheel) and the
-unprocessed noisy input.
+Systems: NVIDIA Real-time RE-USE and DeepFilterNet 3 as run by the Hush engine (``enhance_dir``
+example), DeepFilterNet 3 (official ``deep-filter`` 0.5.6 binary), RNNoise (``pyrnnoise`` wheel)
+and the unprocessed noisy input.
 
 Steps (each one is a sub-command; ``all`` runs them in order):
 
@@ -20,6 +20,8 @@ results.json goes to ``--work`` (outside the repository). Example, from the repo
   <work>/venv/Scripts/python -m pip install -r benchmarks/compare/requirements.txt
   cargo build --release -p hush-core --example enhance_dir
   <work>/venv/Scripts/python -I benchmarks/compare/compare.py --work <work> all
+
+The script finds ``enhance_dir`` in ``target/release/examples``, or in ``$CARGO_TARGET_DIR``.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ HERE = Path(__file__).resolve().parent
 DATASHARE = "https://datashare.ed.ac.uk/bitstream/handle/10283/2791"
 DNS_COMMIT = "591184a9fcb2cbdec02520fed81a32bbbf9d73ff"
 DFN_EXE = "deep-filter-0.5.6-x86_64-pc-windows-msvc.exe"
+DFN_MODEL = "DeepFilterNet3_onnx.tar.gz"  # the model inside DFN_EXE, for the Hush engine
 DOWNLOADS = {
     # name: (subfolder, url, sha256)
     "noisy_testset_wav.zip": (
@@ -66,6 +69,11 @@ DOWNLOADS = {
         "logfiles",
         f"{DATASHARE}/logfiles.zip",
         "ab37c41f31bc2b6c204cc10c8e5bb8bde800307fdb49f277e366d986fefc9e39",
+    ),
+    DFN_MODEL: (
+        "dfn",
+        "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/v0.5.6/models/DeepFilterNet3_onnx.tar.gz",
+        "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616",
     ),
     DFN_EXE: (
         "dfn",
@@ -86,11 +94,12 @@ PAD_SECONDS = 0.1  # silence after each utterance, so every system emits the who
 MAX_LAG = 0.25  # seconds searched for each system's constant delay
 DELAY_FILES = 24  # files used to find the delay, spread evenly over the set
 
-# Hush configurations: (input rate, layers, look-ahead).
+# Hush configurations: (input rate, layers, look-ahead). Layers 0: DeepFilterNet 3.
 HUSH = {
     "hush_light": (16000, 3, 0),
     "hush_studio": (48000, 3, 0),
     "hush_16k_8layers": (16000, 8, 0),
+    "hush_dfn3": (48000, 0, 0),
 }
 SYSTEMS = ["noisy", *HUSH, "deepfilternet3", "rnnoise"]
 LABELS = {
@@ -99,6 +108,7 @@ LABELS = {
     "hush_light": "RE-USE via Hush, Light (16 kHz, 3 layers)",
     "hush_studio": "RE-USE via Hush, Studio (48 kHz, 3 layers)",
     "hush_16k_8layers": "RE-USE via Hush, 16 kHz, 8 layers",
+    "hush_dfn3": "DeepFilterNet 3 via Hush (hush-core, 48 kHz)",
     "deepfilternet3": "DeepFilterNet 3 (deep-filter 0.5.6, 48 kHz)",
     "rnnoise": "RNNoise (pyrnnoise 0.4.5, 48 kHz)",
 }
@@ -163,7 +173,8 @@ def output16(work: Path, system: str) -> Path:
 
 
 def hush_exe() -> Path:
-    exe = REPO / "target" / "release" / "examples" / ("enhance_dir" + (".exe" if os.name == "nt" else ""))
+    target = Path(os.environ.get("CARGO_TARGET_DIR") or REPO / "target")
+    exe = target / "release" / "examples" / ("enhance_dir" + (".exe" if os.name == "nt" else ""))
     if not exe.exists():
         sys.exit(f"{exe} is missing: cargo build --release -p hush-core --example enhance_dir")
     return exe
@@ -249,11 +260,16 @@ def run_hush(work: Path, system: str, jobs: int) -> None:
         listing = work / "lists" / f"{system}_{shard}.txt"
         listing.parent.mkdir(exist_ok=True)
         listing.write_text("\n".join(str(src / f"{n}.wav") for n in part))
-        cmd = [str(hush_exe()), str(listing), str(out), str(layers), str(look_ahead), str(MODEL)]
+        cmd = [str(hush_exe()), str(listing), str(out), str(layers), str(look_ahead), hush_model(work, system)]
         procs.append(subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL))
     for p in procs:
         if p.wait() != 0:
             sys.exit(f"{system}: enhance_dir failed")
+
+
+def hush_model(work: Path, system: str) -> str:
+    """The RE-USE weights, or for ``hush_dfn3`` the DeepFilterNet 3 archive."""
+    return str(work / "dl" / "dfn" / DFN_MODEL if system == "hush_dfn3" else MODEL)
 
 
 def run_dfn(work: Path, jobs: int) -> None:
@@ -330,7 +346,7 @@ def process(work: Path, jobs: int) -> None:
 
     # Same resampler for every 48 kHz output; 16 kHz Hush outputs are used as they are.
     tasks = []
-    for system in ["hush_studio", "deepfilternet3", "rnnoise"]:
+    for system in ["hush_studio", "hush_dfn3", "deepfilternet3", "rnnoise"]:
         for name in names(work):
             dst = output16(work, system) / f"{name}.wav"
             if not dst.exists():
@@ -525,10 +541,11 @@ def timing(work: Path, repeats: int) -> None:
 
     for system, (rate, layers, look_ahead) in HUSH.items():
         clip = tdir / ("timing16.wav" if rate == 16000 else "timing48.wav")
-        for threads in (1, 2):
+        # DeepFilterNet 3 runs on one thread.
+        for threads in (1, 2) if layers else (1,):
             def hush_run() -> dict:
                 cmd = [str(hush_exe()), str(tdir / f"list{rate}.txt"), str(tdir / "out"), str(layers),
-                       str(look_ahead), str(MODEL)]
+                       str(look_ahead), hush_model(work, system)]
                 (tdir / f"list{rate}.txt").write_text(str(clip))
                 out = subprocess.run(cmd, env=dict(os.environ, RAYON_NUM_THREADS=str(threads)),
                                      capture_output=True, text=True, check=True).stdout
@@ -634,13 +651,17 @@ def report(work: Path) -> None:
         },
         "systems_tested": {
             "hush": {
-                "engine": "hush-core 1.0.0 (this repository), example enhance_dir: 1000-sample chunks, "
+                "engine": "hush-core (this repository), example enhance_dir: 1000-sample chunks, "
                           "one fresh stream per file, look-ahead 0",
                 "model": "nvidia/Real-time_RE-USE model.safetensors, revision 4c0c186",
                 "model_sha256": MODEL_SHA256,
+                "deepfilternet3_model": f"{DFN_MODEL} from DeepFilterNet tag v0.5.6 (libDF 0.5.6 with tract, "
+                                        "deep-filter default settings)",
+                "deepfilternet3_model_sha256": DOWNLOADS[DFN_MODEL][2],
                 "rustc": tool_version(["rustc", "--version"]),
                 "commands": {s: f"RAYON_NUM_THREADS=1 target/release/examples/{exe_name} <list> <out> "
-                                f"{l} {a} models/model.safetensors   # input {r} Hz"
+                                f"{l} {a} {'<dl>/dfn/' + DFN_MODEL if s == 'hush_dfn3' else 'models/model.safetensors'}"
+                                f"   # input {r} Hz"
                              for s, (r, l, a) in HUSH.items()},
             },
             "deepfilternet3": {

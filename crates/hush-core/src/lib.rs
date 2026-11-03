@@ -1,10 +1,14 @@
-//! Speech enhancement with NVIDIA's RE-USE models, in plain Rust.
+//! Speech enhancement with NVIDIA's RE-USE models, in plain Rust, and with DeepFilterNet 3.
 //!
-//! Weights come straight from each model's `model.safetensors`.
+//! RE-USE weights come straight from each model's `model.safetensors`.
 //!
 //! - Real-time RE-USE (<https://huggingface.co/nvidia/Real-time_RE-USE>) for live audio:
 //!   [`Denoiser`] takes mono samples in any chunk size and returns enhanced samples;
 //!   [`Streaming`] is the model itself, one 20 ms STFT frame per call.
+//! - DeepFilterNet 3 (<https://github.com/Rikorose/DeepFilterNet>) for live audio:
+//!   [`DeepFilter`], 48 kHz, with the official libDF inference.
+//! - [`Enhancer`] is the streaming interface of both live models; [`live::LiveWorker`] runs
+//!   either one.
 //! - RE-USE and RE-USE-laughter (<https://huggingface.co/nvidia/NVIDIA-NemotronLabs-RE-USE>) for
 //!   finished recordings: [`Offline`], on the CPU, or with a GPU feature (`metal`, `vulkan`,
 //!   `wgpu`, `cuda`, `rocm`) on the GPU.
@@ -47,7 +51,9 @@ compile_error!(
 
 pub mod audio;
 pub mod audio_thread;
+mod deepfilter;
 mod denoiser;
+mod enhancer;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod layers;
@@ -68,7 +74,9 @@ pub mod virtual_mic;
 mod weights;
 mod workers;
 
+pub use deepfilter::{DeepFilter, DEEP_FILTER_RATE};
 pub use denoiser::{Config, Denoiser};
+pub use enhancer::Enhancer;
 #[cfg(feature = "gpu")]
 pub use gpu::GpuDevice;
 pub use offline::Offline;

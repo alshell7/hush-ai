@@ -3,13 +3,16 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 export type Quality = "light" | "balanced" | "studio";
+export type Engine = "deepFilter" | "reuse";
 export type EngineStatus = "off" | "starting" | "on" | "error";
 export type VmicState = "ready" | "install" | "download" | "unsupported";
 export type Platform = "macos" | "windows" | "linux" | string;
 
 export interface Settings {
   onboarded: boolean;
+  /** The NVIDIA license of the RE-USE weights is accepted. */
   licenseAccepted: boolean;
+  engine: Engine;
   enabled: boolean;
   input: string | null;
   output: string | null;
@@ -23,6 +26,7 @@ export interface Settings {
 export interface EngineState {
   status: EngineStatus;
   message: string | null;
+  engine: Engine;
   threads: number;
   inputRate: number;
   modelRate: number;
@@ -35,9 +39,11 @@ export interface ModelInfo {
   size: number;
 }
 
+export type Models = Record<Engine, ModelInfo>;
+
 export interface Snapshot {
   settings: Settings;
-  model: ModelInfo;
+  models: Models;
   engine: EngineState;
   platform: Platform;
   version: string;
@@ -67,6 +73,7 @@ export interface VmicInfo {
 }
 
 export interface ModelProgress {
+  engine: Engine;
   received: number;
   total: number;
   bytesPerSecond: number;
@@ -86,6 +93,7 @@ export interface EventMap {
   meters: Meters;
   settings: Settings;
   "model-progress": ModelProgress;
+  models: Models;
   "mic-level": number;
   "mic-level-error": string;
   test: TestEvent;
@@ -118,7 +126,8 @@ export function emit<K extends keyof EventMap>(event: K, payload: EventMap[K]) {
 const sim = {
   settings: {
     onboarded: new URLSearchParams(location.search).get("onboarded") !== "0",
-    licenseAccepted: true,
+    licenseAccepted: new URLSearchParams(location.search).get("onboarded") !== "0",
+    engine: "deepFilter",
     enabled: true,
     input: null,
     output: null,
@@ -131,12 +140,21 @@ const sim = {
   engine: {
     status: "on",
     message: null,
-    threads: 2,
+    engine: "deepFilter",
+    threads: 1,
     inputRate: 48000,
-    modelRate: 16000,
+    modelRate: 48000,
     outputRate: 48000,
   } as EngineState,
-  model: { installed: true, path: "models/realtime-reuse-4c0c186.safetensors", size: 54055764 } as ModelInfo,
+  // `?models=deepFilter,reuse` lists the downloaded models (default: DeepFilterNet 3 once set up).
+  models: (() => {
+    const query = new URLSearchParams(location.search);
+    const have = (query.get("models") ?? (query.get("onboarded") === "0" ? "" : "deepFilter")).split(",");
+    return {
+      deepFilter: { installed: have.includes("deepFilter"), path: "models/deepfilternet3-v0.5.6.tar.gz", size: 7983136 },
+      reuse: { installed: have.includes("reuse"), path: "models/realtime-reuse-4c0c186.safetensors", size: 54055764 },
+    };
+  })() as Models,
   vmic: {
     state: (new URLSearchParams(location.search).get("vmic") as VmicState | null) ?? "ready",
     driver: "hush",
@@ -166,7 +184,7 @@ function setEngine(patch: Partial<EngineState>) {
 }
 
 export const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
-  snapshot: () => ({ settings: sim.settings, model: sim.model, engine: sim.engine, platform: guessPlatform(), version: "1.0.0" }),
+  snapshot: () => ({ settings: sim.settings, models: sim.models, engine: sim.engine, platform: guessPlatform(), version: "1.1.0" }),
   app_ready: () => undefined,
   devices: () => ({
     inputs: [
@@ -183,6 +201,11 @@ export const simulated: Record<string, (args: Record<string, unknown>) => unknow
   update_settings: ({ patch }) => {
     sim.settings = { ...sim.settings, ...(patch as Partial<Settings>) };
     emit("settings", sim.settings);
+    const engine = sim.settings.engine;
+    if (sim.engine.status === "on" && engine !== sim.engine.engine) {
+      setEngine({ status: "starting", engine });
+      setTimeout(() => setEngine(sim.models[engine].installed ? { status: "on", modelRate: engine === "deepFilter" ? 48000 : 16000, threads: engine === "deepFilter" ? 1 : 2 } : { status: "error", message: "Download the voice model to turn on Hush AI." }), 700);
+    }
     return sim.settings;
   },
   set_enabled_command: ({ on }) => {
@@ -195,22 +218,31 @@ export const simulated: Record<string, (args: Record<string, unknown>) => unknow
     return undefined;
   },
   watch_meters: ({ on }) => simulateMeters(on as boolean),
-  model_download: () =>
+  model_download: ({ engine }) =>
     new Promise((resolve) => {
+      const kind = engine as Engine;
       let received = 0;
-      const total = sim.model.size;
+      const total = sim.models[kind].size;
       const timer = setInterval(() => {
         received = Math.min(total, received + total / 40);
-        emit("model-progress", { received, total, bytesPerSecond: 9.6e6, source: 0 });
+        emit("model-progress", { engine: kind, received, total, bytesPerSecond: 9.6e6, source: 0 });
         if (received >= total) {
           clearInterval(timer);
-          sim.model = { ...sim.model, installed: true };
-          resolve(sim.model);
+          sim.models = { ...sim.models, [kind]: { ...sim.models[kind], installed: true } };
+          emit("models", sim.models);
+          // As the backend does: noise cancellation was waiting for this model.
+          if (sim.engine.status === "error" && sim.settings.engine === kind) setEngine({ status: "on", message: null, modelRate: kind === "deepFilter" ? 48000 : 16000, threads: kind === "deepFilter" ? 1 : 2 });
+          resolve(sim.models);
         }
       }, 80);
     }),
   model_cancel: () => undefined,
-  model_remove: () => ({ ...sim.model, installed: false }),
+  model_remove: ({ engine }) => {
+    const kind = engine as Engine;
+    sim.models = { ...sim.models, [kind]: { ...sim.models[kind], installed: false } };
+    emit("models", sim.models);
+    return sim.models;
+  },
   vmic_status: () => sim.vmic,
   vmic_install: () => new Promise((r) => setTimeout(() => r((sim.vmic = { ...sim.vmic, state: "ready" })), 1200)),
   vmic_uninstall: () => ({ ...sim.vmic, state: "install" }),
@@ -278,9 +310,9 @@ export const api = {
   updateSettings: (patch: Partial<Settings>) => invoke<Settings>("update_settings", { patch }),
   setEnabled: (on: boolean) => invoke<void>("set_enabled_command", { on }),
   watchMeters: (on: boolean) => invoke<void>("watch_meters", { on }),
-  downloadModel: () => invoke<ModelInfo>("model_download"),
+  downloadModel: (engine: Engine) => invoke<Models>("model_download", { engine }),
   cancelModel: () => invoke<void>("model_cancel"),
-  removeModel: () => invoke<ModelInfo>("model_remove"),
+  removeModel: (engine: Engine) => invoke<Models>("model_remove", { engine }),
   vmicStatus: () => invoke<VmicInfo>("vmic_status"),
   vmicInstall: () => invoke<VmicInfo>("vmic_install"),
   vmicUninstall: () => invoke<VmicInfo>("vmic_uninstall"),

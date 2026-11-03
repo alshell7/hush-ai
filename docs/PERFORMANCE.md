@@ -2,13 +2,31 @@
 
 [Home](../README.md) · [Architecture](ARCHITECTURE.md) · [Accuracy](ACCURACY.md)
 
-Each model frame is 20 ms of audio. To run in real time, the CPU must finish every frame
-in less than 20 ms, with margin for other programs. Less CPU per second of audio means
-less battery and less fan noise.
+Hush has two engines. A RE-USE frame is 20 ms of audio; a DeepFilterNet 3 frame is 10 ms.
+To run in real time, the CPU must finish every frame in less than its length, with margin
+for other programs. Less CPU per second of audio means less battery and less fan noise.
 
-## Frame time
+## DeepFilterNet 3 (default)
 
-### Apple M1
+8-core x64 laptop, release build, one thread. The laptop ran other work during these runs,
+so the numbers are rough.
+
+| Run | CPU per audio second | Lost audio |
+| --- | ---: | --- |
+| Offline, 30 s clip, median of 3 (`enhance_dir`) | 7.0% (0.71 ms per 10 ms frame) | – |
+| Paced live worker, 30 s, 2 runs (`bench_live`) | 11–13% of one core | none |
+| Same paced run, RE-USE Light on 1 thread, same time | 96% | could not keep up |
+| Same paced run, RE-USE Light on 2 threads | 155% | some |
+
+The live run costs more than the offline one because the worker wakes up for each 10 ms
+frame. DeepFilterNet 3 needs no worker pool, so **Automatic** threads do not apply. On an
+idle laptop, RE-USE Light used 71–74% on one thread (below).
+
+## RE-USE
+
+### Frame time
+
+#### Apple M1
 
 Mac mini M1, release build, 1000 frames after 50 warm-up frames.
 
@@ -22,7 +40,7 @@ Mac mini M1, release build, 1000 frames after 50 warm-up frames.
 | Studio (48 kHz, 3 layers) | 2 | 31.2 ms | 36.8 ms | 296% |
 |  | 4 | 22.7 ms | 26.4 ms | 360% |
 
-### Intel x64 (cloud)
+#### Intel x64 (cloud)
 
 Modal Linux x64, shared Intel cores at 3.6 GHz with AVX-512. Median of 2 runs of 1500
 frames. **Bold**: p99 below the 20 ms budget.
@@ -42,12 +60,12 @@ The app shows the live **Load** for your computer.
 
 What this shows:
 
-- **Light** runs in real time on both, with large margin on M1. It is the default.
+- **Light** runs in real time on both, with large margin on M1. It is the default RE-USE setting.
 - Rate and layers set the cost: 48 kHz costs about 2.5 times 16 kHz.
 - More threads cut the frame time but add CPU. Use the fewest that keep up.
 - Memory (RSS) is 80–250 MB, mostly the weights.
 
-## Threads and CPU use
+### Threads and CPU use
 
 In live use, frames arrive every 20 ms, and idle workers sleep and wake up around each
 frame. That costs CPU. A paced run through the live worker (`bench_live`, Light, 8-core
@@ -90,7 +108,8 @@ the time, so their cause is likely outside Hush.
 
 | Setting | Delay before device buffers |
 | --- | --- |
-| Hush AI (look-ahead 0, 1-frame output buffer) | about 60 ms |
+| RE-USE (look-ahead 0, one 20 ms output frame) | about 60 ms |
+| DeepFilterNet 3 (30 ms model delay, two 10 ms output frames) | about 60 ms |
 | VB-CABLE on Windows | about 84 ms more (measured with `loop_latency`) |
 
 ## Repeat the measurements
@@ -101,6 +120,7 @@ cargo run --release -p hush-core --example bench_stream -- 16000 3 0 1050 50
 
 # Paced live worker
 cargo run --release -p hush-core --example bench_live -- 16000 3 0 160 30 1 2
+HUSH_MODEL=$PWD/models/DeepFilterNet3_onnx.tar.gz cargo run --release -p hush-core --example bench_live -- 48000 3 0 3000 300 4 8
 
 # Long run with a real microphone and headphones (prints JSON every 60 s)
 cargo run --release -p hush-ai --example live_device -- --list

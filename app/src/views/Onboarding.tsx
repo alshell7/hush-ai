@@ -4,13 +4,15 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { DevicePicker, Segmented, Spinner } from "../components/Controls";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, DownloadIcon, ExternalIcon, LockIcon, MicIcon, PlayIcon, RecordIcon, ShieldIcon, SparkleIcon, StopIcon } from "../components/Icons";
+import { LicenseNote } from "../components/ModelDownload";
 import { MicLevel } from "../components/Meters";
 import { AppGuidePicker } from "../components/AppGuides";
 import { Mochi, Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
 import { VmicSetup } from "../components/VmicSetup";
-import { api, formatBytes, on, openUrl, type ModelProgress, type TestEvent } from "../lib/ipc";
-import { saveSettings, setStore, useApp } from "../lib/store";
+import { ENGINE_ORDER, ENGINES, useModelDownload } from "../lib/engines";
+import { api, formatBytes, on, openUrl, type TestEvent } from "../lib/ipc";
+import { saveSettings, useApp } from "../lib/store";
 
 const STEPS = ["welcome", "model", "microphone", "vmic", "test", "done"] as const;
 type Step = (typeof STEPS)[number];
@@ -32,7 +34,9 @@ export function Onboarding() {
       <TitleBar>
         <Wordmark size={24} />
       </TitleBar>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-8 pb-6">
+      {/* Centered when it fits; scrolls from the top when the window is small, so nothing
+          slides under the title bar, whose drag region would take the clicks. */}
+      <div className="relative flex min-h-0 flex-1 justify-center overflow-y-auto px-8 py-2">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
@@ -41,7 +45,7 @@ export function Onboarding() {
             animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, x: -28 * direction, filter: "blur(6px)" }}
             transition={{ duration: 0.38, ease: [0.2, 0.9, 0.1, 1] }}
-            className="w-full max-w-[760px]"
+            className="my-auto w-full max-w-[760px]"
           >
             {step === "welcome" && <Welcome onNext={forward} />}
             {step === "model" && <ModelStep onNext={forward} />}
@@ -78,7 +82,7 @@ export function Onboarding() {
 
 function StepCard({ eyebrow, title, text, children, art }: { eyebrow: string; title: string; text: React.ReactNode; children: React.ReactNode; art?: React.ReactNode }) {
   return (
-    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-9">
+    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-7 [@media(min-height:620px)]:p-9">
       <div className="min-w-0 space-y-5">
         <div className="space-y-2">
           <div className="eyebrow">{eyebrow}</div>
@@ -133,82 +137,89 @@ function Welcome({ onNext }: { onNext: () => void }) {
 // ------------------------------------------------------------------ 2. Model
 
 function ModelStep({ onNext }: { onNext: () => void }) {
-  const model = useApp((s) => s.model);
   const settings = useApp((s) => s.settings)!;
+  const engine = settings.engine;
   const [agreed, setAgreed] = useState(settings.licenseAccepted);
-  const [progress, setProgress] = useState<ModelProgress | null>(null);
-  const [state, setState] = useState<"idle" | "downloading" | "done" | "error">(model?.installed ? "done" : "idle");
-  const [error, setError] = useState("");
+  const model = useModelDownload(engine);
+  const [done, setDone] = useState(model.installed);
+  const downloading = model.state === "downloading";
 
-  useEffect(() => {
-    const stop = on("model-progress", setProgress);
-    return () => {
-      stop.then((fn) => fn());
-    };
-  }, []);
+  useEffect(() => setDone(model.installed), [engine, model.installed]);
 
   const download = async () => {
-    setState("downloading");
-    setError("");
-    await saveSettings({ licenseAccepted: true });
-    try {
-      const info = await api.downloadModel();
-      setStore({ model: info });
-      setState("done");
+    if (await model.download()) {
+      setDone(true);
       setTimeout(onNext, 900);
-    } catch (e) {
-      setError(String(e));
-      setState("error");
     }
   };
 
-  const fraction = progress ? progress.received / progress.total : 0;
+  // RE-USE needs its license accepted, also when its model is already on this computer.
+  const blocked = engine === "reuse" && !agreed;
+  const accepted = engine === "reuse" && settings.licenseAccepted;
+  const next = async () => {
+    if (engine === "reuse" && !settings.licenseAccepted) await saveSettings({ licenseAccepted: true });
+    onNext();
+  };
+
+  const fraction = model.progress ? model.progress.received / model.progress.total : 0;
+  const state = done ? "done" : downloading ? "downloading" : model.state;
   return (
     <StepCard
       eyebrow="Step 1 · Voice model"
-      title="Download the voice model"
-      text={
-        <>
-          Hush runs NVIDIA's <b>Real-time RE-USE</b> speech model on your CPU. It is a one-time download of {formatBytes(model?.size ?? 54055764)}, checked before use.
-        </>
-      }
-      art={<ProgressRing fraction={state === "done" ? 1 : fraction} state={state} />}
+      title="Choose your voice model"
+      text="Both run on your CPU, so your voice never leaves this computer. You can switch later."
+      art={<ProgressRing fraction={done ? 1 : fraction} state={state} size={model.size} />}
     >
-      <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-white/70 p-3.5 text-[13px] leading-snug text-ink-2" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
-        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#1e1b18]" checked={agreed} disabled={state === "downloading" || state === "done"} onChange={(e) => setAgreed(e.target.checked)} />
-        <span>
-          I agree to the{" "}
-          <a className="link" onClick={(e) => (e.preventDefault(), openUrl("https://huggingface.co/alshell7/hush-ai/blob/main/LICENSE"))}>
-            model's license terms
-          </a>
-          .
-        </span>
-      </label>
+      <div role="radiogroup" aria-label="Voice model" className="grid grid-cols-2 gap-2.5">
+        {ENGINE_ORDER.map((kind) => {
+          const active = kind === engine;
+          return (
+            <button
+              key={kind}
+              role="radio"
+              aria-checked={active}
+              disabled={downloading}
+              onClick={() => saveSettings({ engine: kind })}
+              className="tile cursor-pointer p-3.5 text-left transition-shadow disabled:cursor-default"
+              style={{ boxShadow: active ? "inset 0 0 0 2px var(--h-ink)" : "inset 0 0 0 1px var(--h-line)" }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13.5px] font-semibold">{ENGINES[kind].label}</span>
+                {kind === "deepFilter" && <span className="chip h-5 text-[10.5px] text-green" style={{ background: "rgba(31,157,114,.1)" }}>Recommended</span>}
+              </div>
+              <div className="mt-1 text-[12px] leading-snug text-muted">{ENGINES[kind].hint}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div className="rounded-2xl bg-white/70 p-3.5" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
+        <LicenseNote engine={engine} agreed={agreed} onAgree={setAgreed} disabled={downloading || (done && accepted)} />
+      </div>
       <div className="flex items-center gap-3">
-        {state === "done" ? (
-          <button className="btn btn-primary group" onClick={onNext}>
+        {done ? (
+          <button className="btn btn-primary group" disabled={blocked} onClick={next}>
             Continue <ArrowRightIcon size={18} />
           </button>
-        ) : state === "downloading" ? (
-          <button className="btn btn-soft" onClick={() => api.cancelModel()}>
+        ) : downloading ? (
+          <button className="btn btn-soft" onClick={model.cancel}>
             Cancel
           </button>
         ) : (
-          <button className="btn btn-primary group" disabled={!agreed} onClick={download}>
-            <DownloadIcon size={18} /> {state === "error" ? "Try again" : "Download"}
+          <button className="btn btn-primary group" disabled={blocked} onClick={download}>
+            <DownloadIcon size={18} /> {model.state === "error" ? "Try again" : `Download ${formatBytes(model.size)}`}
           </button>
         )}
         <span className="text-[12.5px] tabular-nums text-muted">
-          {state === "downloading" && progress && `${formatBytes(progress.received)} of ${formatBytes(progress.total)} · ${formatBytes(progress.bytesPerSecond)}/s`}
-          {state === "done" && "Downloaded and verified"}
+          {downloading && model.progress && `${formatBytes(model.progress.received)} of ${formatBytes(model.progress.total)} · ${formatBytes(model.progress.bytesPerSecond)}/s`}
+          {done && "Downloaded and verified"}
         </span>
       </div>
-      {state === "error" && <div className="rounded-2xl bg-[#fdecea] px-3 py-2 text-[12.5px] text-red">{error.split("\n")[0]}</div>}
+      {model.state === "error" && <div className="rounded-2xl bg-[#fdecea] px-3 py-2 text-[12.5px] text-red">{model.error}</div>}
     </StepCard>
   );
 }
 
-function ProgressRing({ fraction, state }: { fraction: number; state: string }) {
+function ProgressRing({ fraction, state, size }: { fraction: number; state: string; size: number }) {
   const r = 70;
   const c = 2 * Math.PI * r;
   return (
@@ -232,7 +243,7 @@ function ProgressRing({ fraction, state }: { fraction: number; state: string }) 
         ) : (
           <motion.div key="pct" className="text-center">
             <div className="text-[30px] font-[650] tabular-nums tracking-[-0.03em]">{Math.round(fraction * 100)}%</div>
-            <div className="text-[11.5px] text-muted">{state === "downloading" ? "downloading" : "54 MB"}</div>
+            <div className="text-[11.5px] text-muted">{state === "downloading" ? "downloading" : formatBytes(size)}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -399,12 +410,13 @@ function TestStep({ onNext }: { onNext: () => void }) {
       </div>
       {error && <div className="rounded-2xl bg-[#fdecea] px-3 py-2 text-[12.5px] text-red">{error.split("\n")[0]}</div>}
       <div className="flex items-center gap-3">
-        <button className="btn btn-primary group" onClick={onNext}>
-          {result ? "Love it" : "Continue"} <ArrowRightIcon size={18} />
-        </button>
-        {!result && (
+        {result ? (
+          <button className="btn btn-primary group" onClick={onNext}>
+            Love it <ArrowRightIcon size={18} />
+          </button>
+        ) : (
           <button className="btn btn-ghost btn-sm" onClick={onNext}>
-            Skip
+            Skip for now <ArrowRightIcon size={16} />
           </button>
         )}
       </div>
@@ -440,7 +452,7 @@ function DoneStep() {
     api.setEnabled(true);
   };
   return (
-    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-9">
+    <div className="glass grid grid-cols-[1fr_auto] items-center gap-8 p-7 [@media(min-height:620px)]:p-9">
       <div className="space-y-5">
         <div className="space-y-2">
           <div className="eyebrow">All set</div>
