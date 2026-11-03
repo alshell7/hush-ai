@@ -88,6 +88,8 @@ pub struct Settings {
     pub prefill: usize,
     /// Send live output to the Hush AI Microphone instead of the speakers.
     pub virtual_mic: bool,
+    /// Live Translate's tap into the live output, if any.
+    pub translate: Option<crate::translate::Tap>,
 }
 
 pub(crate) fn input_stream<T: SizedSample>(

@@ -270,3 +270,16 @@ export const SaveIcon = (p: P) => (
     <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
   </Svg>
 );
+
+export const SwapIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M7 7h12l-3.5-3.5M17 17H5l3.5 3.5" />
+  </Svg>
+);
+
+export const KeyIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="8" cy="15" r="4.5" />
+    <path d="m11.3 11.7 8.2-8.2M17 6l2.5 2.5M14.5 8.5 16.5 10.5" />
+  </Svg>
+);

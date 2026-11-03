@@ -11,6 +11,7 @@ import { Mark } from "../components/Mochi";
 import { ModelDownload } from "../components/ModelDownload";
 import { NoiseMorph } from "../components/NoiseMorph";
 import { PowerHero } from "../components/PowerHero";
+import { TranslateCard } from "../components/TranslateCard";
 import { VmicSetup } from "../components/VmicSetup";
 import { ENGINE_ORDER, ENGINES } from "../lib/engines";
 import { features, useFeatures } from "../lib/features";
@@ -26,7 +27,7 @@ const QUALITY: { value: Quality; label: string; hint: string }[] = [
 
 export const ROADMAP = [
   { icon: SparkleIcon, title: "Noise cancellation", state: "done" },
-  { icon: TranslateIcon, title: "Voice translation", state: "soon" },
+  { icon: TranslateIcon, title: "Voice translation", state: "preview" },
   { icon: AgentIcon, title: "Agent assist", state: "soon" },
   { icon: ChartIcon, title: "Speech analytics", state: "soon" },
   { icon: LockIcon, title: "Voice security", state: "soon" },
@@ -137,6 +138,8 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
             </div>
           </Card>
 
+          <TranslateCard />
+
           <NextMeetingCard onOpenMeetings={onOpenMeetings} />
 
           <Card>
@@ -183,10 +186,10 @@ export function Live({ onOpenMeetings }: { onOpenMeetings: () => void }) {
             <ul className="space-y-1">
               {ROADMAP.map(({ icon: Icon, title, state }) => (
                 <li key={title} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
-                  <Icon size={18} className={state === "done" ? "text-green" : "text-faint"} />
-                  <span className={`flex-1 text-[13.5px] ${state === "done" ? "font-[560]" : "text-ink-2"}`}>{title}</span>
-                  <span className={`chip h-6 text-[11px] ${state === "done" ? "text-green" : "text-muted"}`} style={state === "done" ? { background: "rgba(31,157,114,.1)" } : undefined}>
-                    {state === "done" ? "Available" : "Coming soon"}
+                  <Icon size={18} className={state === "soon" ? "text-faint" : "text-green"} />
+                  <span className={`flex-1 text-[13.5px] ${state === "soon" ? "text-ink-2" : "font-[560]"}`}>{title}</span>
+                  <span className={`chip h-6 text-[11px] ${state === "soon" ? "text-muted" : "text-green"}`} style={state === "soon" ? undefined : { background: "rgba(31,157,114,.1)" }}>
+                    {state === "done" ? "Available" : state === "preview" ? "Preview" : "Coming soon"}
                   </span>
                 </li>
               ))}

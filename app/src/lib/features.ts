@@ -1,5 +1,5 @@
-// Studio (clean up a recording) and Meetings (calendar) on top of the backend bridge: types,
-// commands, a small store each window shares, and the browser simulation.
+// Studio (clean up a recording), Meetings (calendar) and Live Translate on top of the backend
+// bridge: types, commands, a small store each window shares, and the browser simulation.
 import { useSyncExternalStore } from "react";
 import { emit, invoke, isTauri, on, simulated } from "./ipc";
 
@@ -12,11 +12,15 @@ declare module "./ipc" {
     calendarAutoOff: boolean;
     calendarPopup: boolean;
     calendarSync: number;
+    translateFrom: string;
+    translateTo: string;
   }
   interface EventMap {
     studio: StudioEvent;
     calendar: CalendarInfo;
     "meeting-soon": MeetingSoon;
+    translate: TranslateInfo;
+    "translate-setup": null;
   }
 }
 
@@ -72,6 +76,24 @@ export type StudioEvent =
   | { phase: "cancelled" }
   | { phase: "error"; message: string };
 
+export interface TranslateInfo {
+  hasKey: boolean;
+  keyHint: string | null;
+  on: boolean;
+  status: "off" | "connecting" | "on" | "error";
+  message: string | null;
+  /** What you said, and what the other side hears. */
+  heard: string;
+  said: string;
+  detected: string | null;
+}
+
+/** Shown in the UI; the backend registers the same combination. */
+export const TRANSLATE_SHORTCUT = typeof navigator !== "undefined" && navigator.userAgent.includes("Mac") ? "⌘ ⌥ T" : "Ctrl + Alt + T";
+
+/** A Gemini API key as Google AI Studio shows it. */
+export const GEMINI_KEY_PATTERN = /^(?:AIza[0-9A-Za-z_-]{35}|AQ\.[0-9A-Za-z_.-]{20,})$/;
+
 export const features = {
   studioOpen: (path: string) => invoke<void>("studio_open", { path }),
   studioRecord: () => invoke<void>("studio_record"),
@@ -85,7 +107,24 @@ export const features = {
   calendarDisconnect: () => invoke<CalendarInfo>("calendar_disconnect"),
   calendarRefresh: () => invoke<void>("calendar_refresh"),
   calendarJoin: (id: string) => invoke<void>("calendar_join", { id }),
+  translateInfo: () => invoke<TranslateInfo>("translate_info"),
+  translateLanguages: () => invoke<string[]>("translate_languages"),
+  translateSetKey: (key: string) => invoke<TranslateInfo>("translate_set_key", { key }),
+  translateRemoveKey: () => invoke<TranslateInfo>("translate_remove_key"),
+  translateSet: (on: boolean) => invoke<TranslateInfo>("translate_set", { on }),
+  translateOpenKeys: () => invoke<void>("translate_open_keys"),
 };
+
+const names = typeof Intl !== "undefined" && "DisplayNames" in Intl ? new Intl.DisplayNames(undefined, { type: "language" }) : null;
+
+/** "Spanish", "Chinese (Simplified)", in the user's own language. */
+export function languageName(code: string) {
+  try {
+    return names?.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 /** A Google Calendar iCal address, as copied from its settings. */
 export const ICAL_PATTERN = /^(?:https|webcal):\/\/calendar\.google\.com\/calendar\/ical\/[^\s/]+\/(?:private-[^\s/]+|public)\/basic\.ics$/;
@@ -114,12 +153,15 @@ export async function clipboardText(): Promise<string | null> {
 
 interface FeatureState {
   calendar: CalendarInfo | null;
+  translate: TranslateInfo | null;
+  /** Set when something asks for the Gemini key setup (the tray menu or the shortcut). */
+  translateSetup: number;
   /** The latest Studio event; it survives switching tabs. */
   studio: StudioEvent | null;
   soon: MeetingSoon | null;
 }
 
-let state: FeatureState = { calendar: null, studio: null, soon: null };
+let state: FeatureState = { calendar: null, translate: null, translateSetup: 0, studio: null, soon: null };
 const subscribers = new Set<() => void>();
 
 export function setFeatures(patch: Partial<FeatureState>) {
@@ -146,12 +188,14 @@ export async function startFeatures() {
     on("calendar", (calendar) => setFeatures({ calendar })),
     on("studio", (studio) => setFeatures({ studio })),
     on("meeting-soon", (soon) => setFeatures({ soon })),
+    on("translate", (translate) => setFeatures({ translate })),
+    on("translate-setup", () => setFeatures({ translateSetup: Date.now() })),
   ]);
-  try {
-    setFeatures({ calendar: await features.calendarInfo() });
-  } catch {
-    /* the next calendar event fills it in */
-  }
+  const [calendar, translate] = await Promise.allSettled([features.calendarInfo(), features.translateInfo()]);
+  setFeatures({
+    calendar: calendar.status === "fulfilled" ? calendar.value : null,
+    translate: translate.status === "fulfilled" ? translate.value : null,
+  });
 }
 
 // ---------------------------------------------------------------- Simulation
@@ -183,8 +227,25 @@ function simCalendar(connected: boolean): CalendarInfo {
   };
 }
 
+const LANGUAGES = ["af", "ak", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bg", "my", "ca", "zh-Hans", "zh-Hant", "hr", "cs", "da", "nl", "en", "et", "fil", "fi", "fr", "gl", "ka", "de", "el", "gu", "ha", "he", "hi", "hu", "is", "id", "it", "ja", "jv", "kn", "kk", "km", "rw", "ko", "lo", "lv", "lt", "mk", "ms", "ml", "mr", "mn", "ne", "nb", "fa", "pl", "pt-BR", "pt-PT", "pa", "ro", "ru", "sr", "sd", "si", "sk", "sl", "es", "su", "sw", "sv", "ta", "te", "th", "tr", "uk", "ur", "uz", "vi", "zu"];
+
+const CAPTIONS: [string, string][] = [
+  ["Thanks for joining. Let's look at the launch plan for next week.", "Gracias por unirse. Veamos el plan de lanzamiento para la próxima semana."],
+];
+
 if (!isTauri) {
   const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
+  let captionTimer = 0;
+  let translate: TranslateInfo = {
+    hasKey: params.get("translate") !== "0",
+    keyHint: params.get("translate") !== "0" ? "x9Qe" : null,
+    on: false,
+    status: "off",
+    message: null,
+    heard: "",
+    said: "",
+    detected: null,
+  };
   let calendar = simCalendar(params.get("calendar") !== "0");
   let timer = 0;
   // `?soon=1` shows the meeting pop-up, as the calendar does a minute before a call.
@@ -270,5 +331,48 @@ if (!isTauri) {
       setTimeout(() => emit("calendar", (calendar = { ...calendar, status: "ready", updated: Date.now() })), 900);
     },
     calendar_join: () => undefined,
+    translate_info: () => translate,
+    translate_languages: () => LANGUAGES,
+    translate_set_key: ({ key }: Record<string, unknown>) =>
+      new Promise((resolve, reject) =>
+        setTimeout(() => {
+          if (String(key).trim().length < 20) return reject("This does not look like a Gemini API key.");
+          translate = { ...translate, hasKey: true, keyHint: String(key).trim().slice(-4) };
+          emit("translate", translate);
+          resolve(translate);
+        }, 900),
+      ),
+    translate_remove_key: () => {
+      clearInterval(captionTimer);
+      translate = { ...translate, hasKey: false, keyHint: null, on: false, status: "off" };
+      emit("translate", translate);
+      return translate;
+    },
+    translate_set: ({ on }: Record<string, unknown>) => {
+      clearInterval(captionTimer);
+      if (!on) {
+        translate = { ...translate, on: false, status: "off" };
+        emit("translate", translate);
+        return translate;
+      }
+      if (!translate.hasKey) {
+        emit("translate-setup", null);
+        return translate;
+      }
+      translate = { ...translate, on: true, status: "connecting", heard: "", said: "", message: null };
+      emit("translate", translate);
+      setTimeout(() => {
+        translate = { ...translate, status: "on", detected: "en" };
+        emit("translate", translate);
+        let i = 0;
+        captionTimer = window.setInterval(() => {
+          const [heard, said] = CAPTIONS[i % CAPTIONS.length];
+          translate = { ...translate, heard: heard.slice(0, ++i * 3 % (heard.length + 12)), said: said.slice(0, Math.max(0, (i * 3 % (said.length + 12)) - 10)) };
+          emit("translate", translate);
+        }, 160);
+      }, 1100);
+      return translate;
+    },
+    translate_open_keys: () => window.open("https://aistudio.google.com/apikey", "_blank", "noopener"),
   });
 }

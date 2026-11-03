@@ -8,6 +8,7 @@ import { ModelDownload } from "../components/ModelDownload";
 import { toast } from "../components/Toast";
 import { ENGINE_ORDER, ENGINES } from "../lib/engines";
 import { api, formatBytes, isTauri, openUrl, type Engine } from "../lib/ipc";
+import { features, setFeatures, TRANSLATE_SHORTCUT, useFeatures } from "../lib/features";
 import { saveSettings, setStore, useApp } from "../lib/store";
 import { checkForUpdate } from "../lib/updater";
 
@@ -231,6 +232,8 @@ function SettingsBody() {
         })}
       </Section>
 
+      <TranslateSettings />
+
       <Section title="About">
         <div className="flex items-center justify-between py-4">
           <Wordmark size={24} />
@@ -248,5 +251,30 @@ function SettingsBody() {
         </Row>
       </Section>
     </>
+  );
+}
+
+function TranslateSettings() {
+  const info = useFeatures((s) => s.translate);
+  if (!info) return null;
+  return (
+    <Section title="Live Translate">
+      <Row title="Gemini API key" detail={info.hasKey ? `Saved on this computer · ends in ${info.keyHint}` : "Not set up. Add it on the Live tab."}>
+        {info.hasKey && (
+          <button
+            className="btn btn-soft btn-sm"
+            onClick={async () => {
+              setFeatures({ translate: await features.translateRemoveKey() });
+              toast("Gemini API key removed from this computer.");
+            }}
+          >
+            Remove
+          </button>
+        )}
+      </Row>
+      <Row title="Shortcut" detail="Turns Live Translate on and off, in any app.">
+        <kbd className="chip font-sans">{TRANSLATE_SHORTCUT}</kbd>
+      </Row>
+    </Section>
   );
 }

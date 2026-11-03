@@ -94,11 +94,21 @@ pub fn show_main(app: &AppHandle) {
     }
 }
 
+/// The shortcut that turns Live Translate on and off during a call.
+pub const TRANSLATE_SHORTCUT: &str = "CommandOrControl+Alt+T";
+
 /// Turn Live Translate on or off. It needs noise cancellation, so it turns that on too.
+/// Without an API key it opens Hush at the key setup instead.
 pub fn set_translate(app: &AppHandle, on: bool) {
     let translator = app.state::<Arc<translate::Translator>>();
+    if on && !translator.info().has_key {
+        show_main(app);
+        let _ = app.emit("translate-setup", ());
+        translator.set_on(app, false);
+        return;
+    }
     translator.set_on(app, on);
-    if on && translator.info().on && !app.state::<AppState>().settings().enabled {
+    if on && !app.state::<AppState>().settings().enabled {
         set_enabled(app, true);
     }
 }
@@ -112,6 +122,7 @@ pub fn set_enabled(app: &AppHandle, on: bool) {
         app.state::<MicTest>().stop_monitor();
         std::thread::spawn(move || engine.start());
     } else {
+        app.state::<Arc<translate::Translator>>().set_on(app, false);
         engine.stop();
     }
 }
@@ -466,8 +477,53 @@ fn selftest_mode() -> bool {
     std::env::var_os("HUSH_SELFTEST").is_some()
 }
 
-/// Self-test inputs: a noisy WAV for Studio, where to save its result, and the calendar
-/// address from `HUSH_TEST_ICAL`. Only in self-test mode.
+#[tauri::command]
+fn translate_info(
+    translator: tauri::State<Arc<translate::Translator>>,
+) -> translate::TranslateInfo {
+    translator.info()
+}
+
+/// The languages Live Translate speaks, as BCP-47 codes.
+#[tauri::command]
+fn translate_languages() -> Vec<&'static str> {
+    translate::LANGUAGES.to_vec()
+}
+
+/// Check a Gemini API key with a short session with Google, then keep it.
+#[tauri::command]
+async fn translate_set_key(app: AppHandle, key: String) -> Reply<translate::TranslateInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Arc<translate::Translator>>()
+            .set_key(&app, &key)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn translate_remove_key(app: AppHandle) -> translate::TranslateInfo {
+    app.state::<Arc<translate::Translator>>().remove_key(&app)
+}
+
+#[tauri::command]
+fn translate_set(app: AppHandle, on: bool) -> translate::TranslateInfo {
+    set_translate(&app, on);
+    app.state::<Arc<translate::Translator>>().info()
+}
+
+/// Open Google AI Studio's API key page.
+#[tauri::command]
+fn translate_open_keys(app: AppHandle) -> Reply<()> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url("https://aistudio.google.com/apikey", None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// Self-test inputs: a noisy WAV for Studio, where to save its result, the calendar address
+/// from `HUSH_TEST_ICAL` and a Gemini key from `HUSH_TEST_GEMINI_KEY`. Only in self-test mode.
 #[tauri::command]
 fn selftest_fixture(app: AppHandle, kind: String) -> Reply<Option<String>> {
     if std::env::var_os("HUSH_SELFTEST").is_none() {
@@ -507,6 +563,9 @@ fn selftest_fixture(app: AppHandle, kind: String) -> Reply<Option<String>> {
         "ical" => Ok(std::env::var("HUSH_TEST_ICAL")
             .ok()
             .filter(|v| !v.is_empty())),
+        "gemini" => Ok(std::env::var("HUSH_TEST_GEMINI_KEY")
+            .ok()
+            .filter(|v| !v.is_empty())),
         _ => Err(format!("Unknown fixture {kind}")),
     }
 }
@@ -538,6 +597,17 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    use tauri_plugin_global_shortcut::ShortcutState;
+                    if event.state() == ShortcutState::Pressed {
+                        let on = app.state::<Arc<translate::Translator>>().info().on;
+                        set_translate(app, !on);
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -564,6 +634,13 @@ pub fn run() {
             Studio::startup(handle);
             app.manage(Calendar::new(handle));
             app.manage(Arc::new(translate::Translator::new(handle)));
+            {
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                // Another app may own the combination already; Hush works without it.
+                if let Err(error) = handle.global_shortcut().register(TRANSLATE_SHORTCUT) {
+                    log::warn!("Cannot register {TRANSLATE_SHORTCUT}: {error}");
+                }
+            }
             let engine = Engine::new(handle.clone());
             app.manage(engine.clone());
             tray::create(handle)?;
@@ -611,6 +688,12 @@ pub fn run() {
             studio_stop,
             studio_cancel,
             studio_save,
+            translate_info,
+            translate_languages,
+            translate_set_key,
+            translate_remove_key,
+            translate_set,
+            translate_open_keys,
             calendar_info,
             calendar_check,
             calendar_connect,

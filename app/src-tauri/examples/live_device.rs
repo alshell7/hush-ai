@@ -13,6 +13,17 @@ mod live_io;
 #[path = "../src/audio/pulse.rs"]
 mod pulse;
 
+/// The live session's Live Translate tap. The device tester never translates.
+mod translate {
+    pub struct Tap {
+        pub rate: std::sync::Arc<std::sync::atomic::AtomicU32>,
+    }
+
+    impl Tap {
+        pub fn apply(&mut self, _block: &mut [f32]) {}
+    }
+}
+
 use audio_io::{Message, ModelKind, Settings};
 use eyre::{bail, ensure, eyre, Result};
 use hush_core::{WorkerPlacement, WorkerScheduling};
@@ -58,6 +69,7 @@ fn main() -> Result<()> {
         bypass: false,
         prefill: 2,
         virtual_mic: false,
+        translate: None,
     };
     let mut input_name = None;
     let mut output_name = None;

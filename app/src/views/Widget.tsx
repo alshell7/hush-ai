@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Segmented, Toggle } from "../components/Controls";
 import { ExternalIcon, MicIcon } from "../components/Icons";
 import { MeetingSoon, NextUp, useSoon } from "../components/MeetingSoon";
+import { TranslateRow } from "../components/TranslateCard";
 import { LevelStrip } from "../components/Meters";
 import { Mark, Mochi } from "../components/Mochi";
 import { ENGINES } from "../lib/engines";
@@ -82,6 +83,8 @@ export function Widget() {
         </div>
 
         <MeetingSoon />
+
+        <TranslateRow />
 
         <AnimatePresence>
           {hint && (

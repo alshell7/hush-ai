@@ -1,5 +1,6 @@
 //! Live microphone-to-speaker monitoring. All allocation and inference is outside callbacks.
 use super::audio_io::{devices, Message, Selection, Sender, Settings};
+use crate::translate::Tap;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, Stream};
 use eyre::{bail, ensure, Result, WrapErr};
@@ -147,6 +148,7 @@ fn output_stream<T: SizedSample + FromSample<f32>>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     mut output: LiveOutput,
+    mut translate: Option<Tap>,
     stopping: Arc<StopSignal>,
     faded: Arc<AtomicBool>,
 ) -> Result<Stream> {
@@ -162,6 +164,9 @@ fn output_stream<T: SizedSample + FromSample<f32>>(
             for block in data.chunks_mut(channels * scratch.len()) {
                 let count = block.len() / channels;
                 output.read(&mut scratch[..count]);
+                if let Some(tap) = translate.as_mut() {
+                    tap.apply(&mut scratch[..count]);
+                }
                 let mut frames = block.chunks_exact_mut(channels);
                 for (frame, sample) in frames.by_ref().zip(&scratch[..count]) {
                     let gain = if stopping.is_stopping() {
@@ -197,6 +202,7 @@ enum Output {
 fn virtual_mic_feeder(
     mic: VirtualMic,
     mut output: LiveOutput,
+    mut translate: Option<Tap>,
     stopping: Arc<StopSignal>,
     faded: Arc<AtomicBool>,
 ) -> Result<Feeder> {
@@ -204,6 +210,9 @@ fn virtual_mic_feeder(
     let mut fade_remaining = ramp;
     Feeder::start(mic, move |block| {
         output.read(block);
+        if let Some(tap) = translate.as_mut() {
+            tap.apply(block);
+        }
         for sample in block.iter_mut() {
             if stopping.is_stopping() {
                 fade_remaining = fade_remaining.saturating_sub(1);
@@ -256,9 +265,10 @@ fn prefill_frames(denoiser: &dyn Enhancer, requested: usize, bypass: bool) -> us
 fn start_streams(
     input_selection: Selection,
     output_selection: Selection,
-    settings: Settings,
+    mut settings: Settings,
     stopping: Arc<StopSignal>,
 ) -> Result<RunningSession> {
+    let translate = settings.translate.take();
     let input_device = devices::resolve(true, &input_selection)?;
     let (input_config, input_format) = config(&input_device, true, settings.rate)
         .wrap_err_with(|| format!("Cannot configure microphone '{}'. Choose an input device and refresh devices if it was disconnected", input_device.name().unwrap_or_default()))?;
@@ -324,6 +334,9 @@ fn start_streams(
         prefill,
     )?;
     let faded = Arc::new(AtomicBool::new(false));
+    if let Some(tap) = &translate {
+        tap.rate.store(rates.output, Ordering::Release);
+    }
     macro_rules! build_input {
         ($t:ty) => {
             input_stream::<$t>(&input_device, &input_config, input, stopping.clone())?
@@ -350,12 +363,14 @@ fn start_streams(
             &config,
             format,
             output,
+            translate,
             stopping.clone(),
             faded.clone(),
         )?),
         (None, Some(mic)) => Output::VirtualMic(virtual_mic_feeder(
             mic,
             output,
+            translate,
             stopping.clone(),
             faded.clone(),
         )?),
@@ -385,12 +400,13 @@ fn speaker_stream(
     config: &cpal::StreamConfig,
     format: SampleFormat,
     output: LiveOutput,
+    translate: Option<Tap>,
     stopping: Arc<StopSignal>,
     faded: Arc<AtomicBool>,
 ) -> Result<Stream> {
     macro_rules! build_output {
         ($t:ty) => {
-            output_stream::<$t>(device, config, output, stopping, faded)?
+            output_stream::<$t>(device, config, output, translate, stopping, faded)?
         };
     }
     Ok(match format {

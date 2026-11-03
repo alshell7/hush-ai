@@ -28,6 +28,11 @@ export function Main() {
   const studio = useFeatures((s) => s.studio);
   const meetings = useFeatures((s) => s.calendar?.meetings);
   const now = useNow(30_000);
+  const translateSetup = useFeatures((s) => s.translateSetup);
+  // The tray menu or the shortcut asked for the Gemini key setup, which lives on the Live tab.
+  useEffect(() => {
+    if (translateSetup) setTab("live");
+  }, [translateSetup]);
   const soon = meetings?.some((m) => !m.allDay && m.app && m.start - now < 10 * 60_000 && m.end > now);
   const working = studio?.phase === "processing" || studio?.phase === "decoding" || studio?.phase === "recording";
 

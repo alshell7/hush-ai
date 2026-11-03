@@ -62,6 +62,8 @@ struct Inner {
     meters: Option<LiveMeters>,
     /// Start again when the current session has closed.
     restart: bool,
+    /// Stops the current session's translator worker.
+    translate_stop: Option<Arc<AtomicBool>>,
     retries: u32,
 }
 
@@ -127,6 +129,7 @@ impl Engine {
                 meters: None,
                 restart: false,
                 retries: 0,
+                translate_stop: None,
             }),
             viewers: AtomicUsize::new(0),
             quitting: AtomicBool::new(false),
@@ -196,7 +199,23 @@ impl Engine {
         };
         let (input, notice) = input_selection(&settings);
         let output = output_selection(&settings);
-        let audio = audio_settings(&settings, model, true);
+        let mut audio = audio_settings(&settings, model, true);
+        // Live Translate can switch on at any time during this session.
+        let translator = app
+            .state::<Arc<crate::translate::Translator>>()
+            .inner()
+            .clone();
+        let (tap, link) = crate::translate::tap(&translator);
+        audio.translate = Some(tap);
+        if let Some(stop) = inner.translate_stop.take() {
+            stop.store(true, Ordering::Release);
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        inner.translate_stop = Some(stop.clone());
+        let worker_app = app.clone();
+        let _ = thread::Builder::new()
+            .name("hush-translate".into())
+            .spawn(move || crate::translate::run(worker_app, link, stop));
         inner.state.status = Status::Starting;
         inner.state.message = notice;
         self.closed.store(false, Ordering::Relaxed);
@@ -271,6 +290,9 @@ impl Engine {
                 self.closed.store(true, Ordering::Relaxed);
                 inner.session = None;
                 inner.meters = None;
+                if let Some(stop) = inner.translate_stop.take() {
+                    stop.store(true, Ordering::Release);
+                }
                 if inner.restart && !self.quitting.load(Ordering::Relaxed) {
                     self.launch(&mut inner);
                     return;
@@ -377,6 +399,7 @@ pub fn audio_settings(settings: &Settings, model: PathBuf, virtual_mic: bool) ->
         bypass: false,
         prefill: 1,
         virtual_mic,
+        translate: None,
     }
 }
 
@@ -412,7 +435,10 @@ pub fn offline_model(app: &AppHandle, rate: u32) -> eyre::Result<OfflineModel> {
         .ok_or_else(|| eyre::eyre!("Download the voice model first"))?;
     match settings.engine {
         Model::DeepFilter => {
-            eyre::ensure!(rate == hush_core::DEEP_FILTER_RATE, "DeepFilterNet 3 runs at 48 kHz");
+            eyre::ensure!(
+                rate == hush_core::DEEP_FILTER_RATE,
+                "DeepFilterNet 3 runs at 48 kHz"
+            );
             let model = hush_core::DeepFilter::load(&path)?;
             Ok(OfflineModel {
                 model: Box::new(model),

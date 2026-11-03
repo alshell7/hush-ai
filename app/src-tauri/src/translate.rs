@@ -14,7 +14,7 @@ use std::{
     net::TcpStream,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
     },
     thread,
@@ -36,11 +36,11 @@ const CAPTION_CHARS: usize = 220;
 /// Languages Gemini Live Translate speaks (BCP-47).
 pub const LANGUAGES: &[&str] = &[
     "af", "ak", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bg", "my", "ca", "zh-Hans",
-    "zh-Hant", "hr", "cs", "da", "nl", "en", "et", "fil", "fi", "fr", "gl", "ka", "de", "el",
-    "gu", "ha", "he", "hi", "hu", "is", "id", "it", "ja", "jv", "kn", "kk", "km", "rw", "ko",
-    "lo", "lv", "lt", "mk", "ms", "ml", "mr", "mn", "ne", "nb", "fa", "pl", "pt-BR", "pt-PT",
-    "pa", "ro", "ru", "sr", "sd", "si", "sk", "sl", "es", "su", "sw", "sv", "ta", "te", "th",
-    "tr", "uk", "ur", "uz", "vi", "zu",
+    "zh-Hant", "hr", "cs", "da", "nl", "en", "et", "fil", "fi", "fr", "gl", "ka", "de", "el", "gu",
+    "ha", "he", "hi", "hu", "is", "id", "it", "ja", "jv", "kn", "kk", "km", "rw", "ko", "lo", "lv",
+    "lt", "mk", "ms", "ml", "mr", "mn", "ne", "nb", "fa", "pl", "pt-BR", "pt-PT", "pa", "ro", "ru",
+    "sr", "sd", "si", "sk", "sl", "es", "su", "sw", "sv", "ta", "te", "th", "tr", "uk", "ur", "uz",
+    "vi", "zu",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -87,6 +87,7 @@ struct Inner {
 /// The app-wide translation state. The live session reads `on` and the languages from it.
 pub struct Translator {
     inner: Mutex<Inner>,
+    /// Where the API key is kept.
     path: PathBuf,
     /// Shared with the live session's audio tap.
     pub active: Arc<AtomicBool>,
@@ -123,10 +124,15 @@ impl Translator {
         let inner = self.inner.lock().unwrap();
         TranslateInfo {
             has_key: inner.key.is_some(),
-            key_hint: inner
-                .key
-                .as_deref()
-                .map(|k| k.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect()),
+            key_hint: inner.key.as_deref().map(|k| {
+                k.chars()
+                    .rev()
+                    .take(4)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect()
+            }),
             on: inner.on,
             status: inner.status,
             message: inner.message.clone(),
@@ -155,7 +161,12 @@ impl Translator {
         Session::open(&key, &target, None)?;
         std::fs::create_dir_all(self.path.parent().unwrap_or(&self.path))?;
         let temporary = self.path.with_extension("json.tmp");
-        std::fs::write(&temporary, serde_json::to_vec(&Stored { key: Some(key.clone()) })?)?;
+        std::fs::write(
+            &temporary,
+            serde_json::to_vec(&Stored {
+                key: Some(key.clone()),
+            })?,
+        )?;
         std::fs::rename(&temporary, &self.path)?;
         self.inner.lock().unwrap().key = Some(key);
         self.publish(app);
@@ -210,14 +221,22 @@ impl Translator {
     }
 
     /// Add caption text; sends at most 8 updates per second.
-    fn caption(&self, app: &AppHandle, heard: Option<&str>, said: Option<&str>, language: Option<String>) {
+    fn caption(
+        &self,
+        app: &AppHandle,
+        heard: Option<&str>,
+        said: Option<&str>,
+        language: Option<String>,
+    ) {
         let send = {
             let mut inner = self.inner.lock().unwrap();
             let roll = |text: &mut String, add: &str| {
                 text.push_str(add);
                 if text.len() > CAPTION_CHARS * 2 {
                     let cut = text.len() - CAPTION_CHARS;
-                    let cut = (cut..text.len()).find(|&i| text.is_char_boundary(i)).unwrap_or(0);
+                    let cut = (cut..text.len())
+                        .find(|&i| text.is_char_boundary(i))
+                        .unwrap_or(0);
                     text.replace_range(..cut, "…");
                 }
             };
@@ -271,11 +290,24 @@ fn set_timeout(socket: &WebSocket<MaybeTlsStream<TcpStream>>, timeout: Option<Du
 
 fn friendly(error: &str) -> String {
     let lower = error.to_lowercase();
-    if lower.contains("api key not valid") || lower.contains("api_key_invalid") || lower.contains("permission") || lower.contains("401") || lower.contains("403") {
+    if lower.contains("api key not valid")
+        || lower.contains("api_key_invalid")
+        || lower.contains("permission")
+        || lower.contains("401")
+        || lower.contains("403")
+    {
         "Google did not accept this API key.".into()
-    } else if lower.contains("quota") || lower.contains("resource_exhausted") || lower.contains("429") {
-        "Your Gemini quota is used up. Try again later or check your plan in Google AI Studio.".into()
-    } else if lower.contains("dns") || lower.contains("connect") || lower.contains("timed out") || lower.contains("network") {
+    } else if lower.contains("quota")
+        || lower.contains("resource_exhausted")
+        || lower.contains("429")
+    {
+        "Your Gemini quota is used up. Try again later or check your plan in Google AI Studio."
+            .into()
+    } else if lower.contains("dns")
+        || lower.contains("connect")
+        || lower.contains("timed out")
+        || lower.contains("network")
+    {
         "Cannot reach Google. Check your internet connection.".into()
     } else {
         error.lines().next().unwrap_or(error).to_string()
@@ -319,7 +351,11 @@ impl Session {
                 Message::Binary(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
                 Message::Close(frame) => {
                     let reason = frame.map(|f| f.reason.to_string()).unwrap_or_default();
-                    return Err(eyre!(friendly(if reason.is_empty() { "Google closed the session" } else { &reason })));
+                    return Err(eyre!(friendly(if reason.is_empty() {
+                        "Google closed the session"
+                    } else {
+                        &reason
+                    })));
                 }
                 _ => continue,
             };
@@ -336,7 +372,9 @@ impl Session {
     pub fn send(&mut self, samples: &[f32]) -> Result<()> {
         let mut bytes = Vec::with_capacity(samples.len() * 2);
         for sample in samples {
-            bytes.extend_from_slice(&((sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16).to_le_bytes());
+            bytes.extend_from_slice(
+                &((sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16).to_le_bytes(),
+            );
         }
         let message = json!({
             "realtimeInput": { "audio": { "data": BASE64.encode(bytes), "mimeType": "audio/pcm;rate=16000" } }
@@ -349,7 +387,12 @@ impl Session {
     pub fn receive(&mut self) -> Result<Option<Received>> {
         let message = match self.socket.read() {
             Ok(message) => message,
-            Err(tungstenite::Error::Io(e)) if matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+            Err(tungstenite::Error::Io(e))
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
                 return Ok(None)
             }
             Err(e) => return Err(eyre!(friendly(&e.to_string()))),
@@ -359,7 +402,11 @@ impl Session {
             Message::Binary(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
             Message::Close(frame) => {
                 let reason = frame.map(|f| f.reason.to_string()).unwrap_or_default();
-                return Err(eyre!(friendly(if reason.is_empty() { "Google closed the session" } else { &reason })));
+                return Err(eyre!(friendly(if reason.is_empty() {
+                    "Google closed the session"
+                } else {
+                    &reason
+                })));
             }
             _ => return Ok(Some(Received::default())),
         };
@@ -371,26 +418,41 @@ fn parse(text: &str) -> Received {
     let value: Value = serde_json::from_str(text).unwrap_or(Value::Null);
     let mut out = Received::default();
     if let Some(content) = value.get("serverContent") {
-        if let Some(parts) = content.pointer("/modelTurn/parts").and_then(Value::as_array) {
+        if let Some(parts) = content
+            .pointer("/modelTurn/parts")
+            .and_then(Value::as_array)
+        {
             for part in parts {
                 if let Some(data) = part.pointer("/inlineData/data").and_then(Value::as_str) {
                     if let Ok(bytes) = BASE64.decode(data) {
-                        out.audio.extend(bytes.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])));
+                        let (pairs, _) = bytes.as_chunks::<2>();
+                        out.audio
+                            .extend(pairs.iter().map(|b| i16::from_le_bytes(*b)));
                     }
                 }
             }
         }
         if let Some(t) = content.get("inputTranscription") {
             out.heard = t.get("text").and_then(Value::as_str).map(str::to_string);
-            out.language = t.get("languageCode").and_then(Value::as_str).map(str::to_string);
+            out.language = t
+                .get("languageCode")
+                .and_then(Value::as_str)
+                .map(str::to_string);
         }
         if let Some(t) = content.get("outputTranscription") {
             out.said = t.get("text").and_then(Value::as_str).map(str::to_string);
         }
     }
     if let Some(update) = value.get("sessionResumptionUpdate") {
-        if update.get("resumable").and_then(Value::as_bool).unwrap_or(false) {
-            out.resume = update.get("newHandle").and_then(Value::as_str).map(str::to_string);
+        if update
+            .get("resumable")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            out.resume = update
+                .get("newHandle")
+                .and_then(Value::as_str)
+                .map(str::to_string);
         }
     }
     out.go_away = value.get("goAway").is_some();
@@ -399,12 +461,63 @@ fn parse(text: &str) -> Received {
 
 // ---------------------------------------------------------------- Live session worker
 
-/// The live session's side of translation: its output goes in, translated audio comes out,
-/// both at the output device's rate.
+/// The audio side of translation, used in the live session's output callback. While
+/// translation is on, the clean voice goes to the translator and the translated voice
+/// replaces it. Lock-free and allocation-free: two queues and a flag.
+pub struct Tap {
+    active: Arc<AtomicBool>,
+    clean: Producer<f32>,
+    translated: Consumer<f32>,
+    /// The output device's rate, set once the session knows it.
+    pub rate: Arc<AtomicU32>,
+}
+
+impl Tap {
+    pub fn apply(&mut self, block: &mut [f32]) {
+        if !self.active.load(Ordering::Relaxed) {
+            // Let an old translation drain away, a little per callback.
+            for _ in 0..block.len() * 4 {
+                if self.translated.pop().is_err() {
+                    break;
+                }
+            }
+            return;
+        }
+        for sample in block.iter() {
+            let _ = self.clean.push(*sample);
+        }
+        for sample in block.iter_mut() {
+            *sample = self.translated.pop().unwrap_or(0.0);
+        }
+    }
+}
+
+/// The translator's side of a [`Tap`].
 pub struct Link {
-    pub clean: Consumer<f32>,
-    pub translated: Producer<f32>,
-    pub rate: u32,
+    clean: Consumer<f32>,
+    translated: Producer<f32>,
+    rate: Arc<AtomicU32>,
+}
+
+/// A connected tap and link for one live session.
+pub fn tap(translator: &Translator) -> (Tap, Link) {
+    // Two seconds of voice to send, and half a minute of translation to play.
+    let (clean_in, clean_out) = rtrb::RingBuffer::new(96_000 * 2);
+    let (translated_in, translated_out) = rtrb::RingBuffer::new(96_000 * 30);
+    let rate = Arc::new(AtomicU32::new(0));
+    (
+        Tap {
+            active: translator.active.clone(),
+            clean: clean_in,
+            translated: translated_out,
+            rate: rate.clone(),
+        },
+        Link {
+            clean: clean_out,
+            translated: translated_in,
+            rate,
+        },
+    )
 }
 
 /// Runs for as long as the live session; connects to Gemini only while translation is on.
@@ -414,9 +527,20 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
     let mut resume: Option<String> = None;
     let mut retry_at = Instant::now();
     let mut failures = 0u32;
-    let mut down = StreamingMono::new(link.rate, SEND_RATE).expect("rates");
-    let mut up = StreamingMono::new(RECEIVE_RATE, link.rate).expect("rates");
     let mut pending: Vec<f32> = Vec::with_capacity(CHUNK * 2);
+    // The session sets the output rate once its devices are open.
+    let rate = loop {
+        let rate = link.rate.load(Ordering::Acquire);
+        if rate > 0 || stop.load(Ordering::Acquire) {
+            break rate;
+        }
+        thread::sleep(Duration::from_millis(20));
+    };
+    if rate == 0 {
+        return;
+    }
+    let mut down = StreamingMono::new(rate, SEND_RATE).expect("rates");
+    let mut up = StreamingMono::new(RECEIVE_RATE, rate).expect("rates");
 
     while !stop.load(Ordering::Acquire) {
         if !translator.active.load(Ordering::Acquire) {
@@ -462,7 +586,9 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
                 }
             }
         }
-        let Some((live, _)) = session.as_mut() else { continue };
+        let Some((live, _)) = session.as_mut() else {
+            continue;
+        };
         let mut broken = None;
         // Clean voice in, 100 ms at a time.
         while let Ok(sample) = link.clean.pop() {
@@ -486,7 +612,12 @@ pub fn run(app: AppHandle, mut link: Link, stop: Arc<AtomicBool>) {
                         });
                     }
                     if message.heard.is_some() || message.said.is_some() {
-                        translator.caption(&app, message.heard.as_deref(), message.said.as_deref(), message.language);
+                        translator.caption(
+                            &app,
+                            message.heard.as_deref(),
+                            message.said.as_deref(),
+                            message.language,
+                        );
                     }
                     if message.resume.is_some() {
                         resume = message.resume;
@@ -537,12 +668,18 @@ mod tests {
     #[test]
     #[ignore]
     fn gemini_translates() {
-        let (Ok(key), Ok(speech)) = (std::env::var("HUSH_TEST_GEMINI_KEY"), std::env::var("HUSH_TEST_SPEECH")) else {
+        let (Ok(key), Ok(speech)) = (
+            std::env::var("HUSH_TEST_GEMINI_KEY"),
+            std::env::var("HUSH_TEST_SPEECH"),
+        ) else {
             return;
         };
         let mut reader = hound::WavReader::open(&speech).unwrap();
         let rate = reader.spec().sample_rate;
-        let input: Vec<f32> = reader.samples::<i16>().map(|s| s.unwrap() as f32 / i16::MAX as f32).collect();
+        let input: Vec<f32> = reader
+            .samples::<i16>()
+            .map(|s| s.unwrap() as f32 / i16::MAX as f32)
+            .collect();
         let samples = hush_core::resample::mono(&input, rate, SEND_RATE).unwrap();
         let started = Instant::now();
         let mut session = Session::open(&key, "es", None).expect("setup");
@@ -569,9 +706,19 @@ mod tests {
                 }
             }
         }
-        println!("input {:.1} s, translated audio {:.1} s, first audio after {:?}", samples.len() as f32 / SEND_RATE as f32, audio.len() as f32 / RECEIVE_RATE as f32, first_audio);
+        println!(
+            "input {:.1} s, translated audio {:.1} s, first audio after {:?}",
+            samples.len() as f32 / SEND_RATE as f32,
+            audio.len() as f32 / RECEIVE_RATE as f32,
+            first_audio
+        );
         println!("heard: {heard}\nsaid: {said}");
-        let spec = hound::WavSpec { channels: 1, sample_rate: RECEIVE_RATE, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: RECEIVE_RATE,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
         let out = std::path::Path::new(&speech).with_extension("es.wav");
         let mut writer = hound::WavWriter::create(&out, spec).unwrap();
         for s in audio {
