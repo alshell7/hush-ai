@@ -116,17 +116,12 @@ pub fn set_translate(app: &AppHandle, side: conversation::Side, on: bool) {
         app.state::<Arc<listen::Listener>>().refresh();
         return;
     }
+    // The live session carries your voice with noise cancellation on or off; start it if it
+    // is not running (for example after a device error).
     let engine = app.state::<Arc<Engine>>().inner().clone();
-    let settings = app.state::<AppState>().settings();
-    if settings.enabled || !settings.onboarded {
-        return;
-    }
-    // Noise cancellation is off: a pass-through session carries the voice, only while translating.
-    if on {
+    if on && app.state::<AppState>().settings().onboarded && !engine.is_running() {
         app.state::<MicTest>().stop_monitor();
         std::thread::spawn(move || engine.start());
-    } else {
-        engine.stop();
     }
 }
 
@@ -154,16 +149,14 @@ pub fn talking(app: &AppHandle) -> bool {
     translator.is_on(conversation::Side::Me) || translator.is_on(conversation::Side::Them)
 }
 
-/// Turn noise cancellation on or off, and remember it. While Live Translate is on, turning
-/// noise cancellation off keeps a pass-through session for the translation.
+/// Turn noise cancellation on or off, and remember it. Off does not silence Hush AI
+/// Microphone: the session restarts as a pass-through, so apps keep hearing your voice as it
+/// is and nobody has to change microphones. Only quitting Hush silences it.
 pub fn set_enabled(app: &AppHandle, on: bool) {
     let settings = app.state::<AppState>().update(|s| s.enabled = on);
     let _ = app.emit("settings", &settings);
     let engine = app.state::<Arc<Engine>>().inner().clone();
-    let translating = app
-        .state::<Arc<translate::Translator>>()
-        .is_on(conversation::Side::Me);
-    if on || translating {
+    if settings.onboarded {
         app.state::<MicTest>().stop_monitor();
         std::thread::spawn(move || engine.start());
     } else {
@@ -201,7 +194,10 @@ async fn devices() -> Reply<Devices> {
                 .into_iter()
                 // Never offer Hush's own devices as a microphone or headphones.
                 .filter(|name| {
-                    !name.starts_with("Hush AI Microphone") && !name.starts_with("CABLE")
+                    !name.starts_with("Hush AI Microphone")
+                        && !name.starts_with("Hush AI Speaker")
+                        && !name.starts_with("CABLE")
+                        && !name.starts_with("Hi-Fi Cable")
                 })
                 .map(|name| Device {
                     name: Some(name.to_string()),
@@ -267,7 +263,7 @@ fn update_settings(app: AppHandle, patch: serde_json::Value) -> Reply<Settings> 
     }
     let engine = app.state::<Arc<Engine>>().inner().clone();
     // A session that failed, for example for a model that is not downloaded, tries again too.
-    let failed = saved.enabled && saved.onboarded && engine.state().status == Status::Error;
+    let failed = saved.onboarded && engine.state().status == Status::Error;
     if before.enabled != saved.enabled {
         set_enabled(&app, saved.enabled);
     } else if restart && (engine.is_running() || failed) {
@@ -646,6 +642,37 @@ fn listen_info(listener: tauri::State<Arc<listen::Listener>>) -> listen::ListenI
     listener.info()
 }
 
+/// Windows: whether Hush AI Speaker is "ready", a second cable is "installed" (to be named),
+/// or it is "missing". Elsewhere Hush AI Speaker comes with Hush: always "ready".
+#[tauri::command]
+fn speaker_status() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        use audio::live_io::vb_cable::{speaker_status, Status};
+        match speaker_status() {
+            Status::Ready => "ready",
+            Status::Installed => "installed",
+            Status::Missing => "missing",
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    "ready"
+}
+
+/// Windows: name the second cable Hush AI Speaker (one administrator prompt).
+#[tauri::command]
+async fn speaker_setup(app: AppHandle) -> Reply<&'static str> {
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::spawn_blocking(audio::live_io::vb_cable::setup_speaker)
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(text)?;
+    }
+    app.state::<Arc<listen::Listener>>().refresh();
+    Ok(speaker_status())
+}
+
 /// Their voice's level, 0..1.
 #[tauri::command]
 fn listen_level(listener: tauri::State<Arc<listen::Listener>>) -> f32 {
@@ -787,7 +814,8 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             let path = config_dir.join("settings.json");
             let settings = Settings::load(&path);
-            let start = settings.onboarded && settings.enabled;
+            // Hush AI Microphone works from the start, with noise cancellation on or off.
+            let start = settings.onboarded;
             app.manage(AppState {
                 settings: Mutex::new(settings),
                 path,
@@ -880,6 +908,8 @@ pub fn run() {
             conversations_export,
             listen_info,
             listen_level,
+            speaker_status,
+            speaker_setup,
             notch::notch_region,
             notch::notch_geometry,
             translate_set,

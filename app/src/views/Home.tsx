@@ -80,8 +80,8 @@ export function Live({ onOpenMeetings, onOpenTranslate }: { onOpenMeetings: () =
 
   const toggle = () => api.setEnabled(!settings.enabled);
 
-  const headline = status === "error" ? "Hush needs a moment" : on ? "Your voice, without the noise" : busy ? "Waking up…" : "Hush is resting";
-  const sub = status === "error" ? engine.message : on ? "Apps hear you through Hush AI Microphone." : "Turn on to remove background noise in every app.";
+  const headline = status === "error" ? "Hush needs a moment" : on ? "Your voice, without the noise" : busy ? "Waking up…" : "Noise cancellation is off";
+  const sub = status === "error" ? engine.message : on ? "Apps hear you through Hush AI Microphone." : "Your apps still hear you through Hush AI Microphone, just without the cleanup. No need to switch microphones.";
 
   return (
     <>

@@ -2,7 +2,8 @@
 // one title bar.
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { CalendarIcon, ChatIcon, GearIcon, PowerIcon, WaveIcon } from "../components/Icons";
+import { Spinner } from "../components/Controls";
+import { CalendarIcon, ChatIcon, GearIcon, PowerIcon, SparkleIcon, WaveIcon } from "../components/Icons";
 import { Wordmark } from "../components/Mochi";
 import { TitleBar } from "../components/TitleBar";
 import { useFeatures, talking } from "../lib/features";
@@ -58,8 +59,10 @@ export function Main() {
     <div className="relative flex h-full flex-col">
       <TitleBar>
         <Wordmark size={26} />
-        <div data-tauri-drag-region className="flex-1" />
-        <nav role="tablist" aria-label="Sections" className="no-drag absolute left-1/2 flex -translate-x-1/2 rounded-full p-[3px]" style={{ background: "rgba(30,27,24,.06)" }}>
+        {/* The tabs sit in the free space between the logo and the buttons, so a long update
+            label or the window controls never run into them. */}
+        <div data-tauri-drag-region className="min-w-3 flex-1" />
+        <nav role="tablist" aria-label="Sections" className="no-drag flex shrink-0 rounded-full p-[3px]" style={{ background: "rgba(30,27,24,.06)" }}>
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = tab === id;
             const dot = (id === "meetings" && soon) || (id === "studio" && working && !active) || (id === "translate" && translating && !active);
@@ -87,17 +90,20 @@ export function Main() {
             );
           })}
         </nav>
+        <div data-tauri-drag-region className="min-w-3 flex-1" />
         <AnimatePresence>
           {update && (
             <motion.button
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="btn btn-opal btn-sm no-drag"
+              className="btn btn-opal btn-sm no-drag shrink-0 whitespace-nowrap"
               disabled={update.state !== "ready"}
+              title={update.state === "ready" ? `Hush AI ${update.version} is ready: see what's new and restart` : `Downloading Hush AI ${update.version}`}
               onClick={() => setNotesOpen(true)}
             >
-              {update.state === "ready" ? `Update to ${update.version}` : `Downloading ${update.version}…`}
+              {update.state === "ready" ? <SparkleIcon size={14} /> : <Spinner size={12} />}
+              {update.state === "ready" ? "Update" : "Updating"}
             </motion.button>
           )}
         </AnimatePresence>

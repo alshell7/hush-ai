@@ -7,8 +7,16 @@
 //! | CABLE Output (recording) | Hush AI Microphone (Hush) |
 //! | CABLE Input (playback) | Hush AI Microphone Feed (Hush) |
 //!
+//! Hush AI Speaker works the same way with a second cable: VB-Audio's free Hi-Fi Cable, or
+//! VB-CABLE A or B. Meeting apps play to it; Hush reads it by WASAPI loopback.
+//!
+//! | Second cable endpoint | Renamed to |
+//! | --- | --- |
+//! | Hi-Fi Cable Input / CABLE-A Input / CABLE-B Input (playback) | Hush AI Speaker (Hush) |
+//! | Hi-Fi Cable Output / CABLE-A Output / CABLE-B Output (recording) | Hush AI Speaker Monitor (Hush) |
+//!
 //! Renaming writes the endpoint property store, which needs administrator rights: the app
-//! starts itself elevated with `--vb-cable setup` or `--vb-cable restore` (one UAC prompt).
+//! starts itself elevated with `--vb-cable setup|restore|speaker-setup` (one UAC prompt).
 //! Only the endpoint names change. The driver stays VB-Audio's; reinstalling VB-CABLE restores
 //! the names. Hush never downloads or installs VB-CABLE itself: VB-Audio's terms do not allow
 //! bundling it, so the app opens VB-Audio's page and the user installs it.
@@ -24,6 +32,18 @@ const CABLE_INTERFACE: &str = "VB-Audio Virtual Cable";
 const MIC_NAME: &str = "Hush AI Microphone";
 const FEED_NAME: &str = "Hush AI Microphone Feed";
 const INTERFACE_NAME: &str = "Hush";
+pub const SPEAKER_NAME: &str = "Hush AI Speaker";
+const MONITOR_NAME: &str = "Hush AI Speaker Monitor";
+/// Second cables, best first: (playback endpoint, recording endpoint, interface).
+const SPEAKER_CABLES: &[(&str, &str, &str)] = &[
+    (
+        "Hi-Fi Cable Input",
+        "Hi-Fi Cable Output",
+        "VB-Audio Hi-Fi Cable",
+    ),
+    ("CABLE-A Input", "CABLE-A Output", "VB-Audio Cable A"),
+    ("CABLE-B Input", "CABLE-B Output", "VB-Audio Cable B"),
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -55,6 +75,24 @@ pub fn status() -> Status {
     }
 }
 
+/// Hush AI Speaker: named and ready, a second cable to name, or none.
+pub fn speaker_status() -> Status {
+    let outputs: Vec<String> = cpal::default_host()
+        .output_devices()
+        .map(|devices| devices.filter_map(|d| d.name().ok()).collect())
+        .unwrap_or_default();
+    if outputs.iter().any(|n| named(n, SPEAKER_NAME)) {
+        Status::Ready
+    } else if outputs
+        .iter()
+        .any(|n| SPEAKER_CABLES.iter().any(|(render, _, _)| named(n, render)))
+    {
+        Status::Installed
+    } else {
+        Status::Missing
+    }
+}
+
 /// The playback side of the renamed cable, where Hush sends its output.
 pub fn feed_device() -> Result<cpal::Device> {
     cpal::default_host()
@@ -73,15 +111,27 @@ pub fn open_download_page() -> Result<()> {
 /// Rename the cable (or restore its names) in an elevated copy of this app. Blocks until the
 /// copy exits; call it off the GUI thread. Fails if the user declines the UAC prompt.
 pub fn run_elevated(restore: bool) -> Result<()> {
-    let exe = std::env::current_exe()?;
-    let code = shell::run_as_admin(
-        &exe,
-        if restore {
-            "--vb-cable restore"
+    elevated(if restore {
+        "--vb-cable restore"
+    } else {
+        "--vb-cable setup"
+    })
+}
+
+/// Name the second cable Hush AI Speaker, in an elevated copy of this app.
+pub fn setup_speaker() -> Result<()> {
+    elevated("--vb-cable speaker-setup").map_err(|e| {
+        if e.to_string().contains("was not found") {
+            eyre!("No second cable was found. Install Hi-Fi Cable from VB-Audio, restart Windows, then try again")
         } else {
-            "--vb-cable setup"
-        },
-    )?;
+            e
+        }
+    })
+}
+
+fn elevated(arguments: &str) -> Result<()> {
+    let exe = std::env::current_exe()?;
+    let code = shell::run_as_admin(&exe, arguments)?;
     match code {
         0 => Ok(()),
         2 => Err(eyre!("VB-CABLE was not found. Install it, then try again")),
@@ -97,10 +147,21 @@ pub fn run_elevated(restore: bool) -> Result<()> {
 
 /// Entry point for `hush --vb-cable setup|restore`, run elevated. Returns the process exit code.
 pub fn elevated_main(action: &str) -> i32 {
-    let restore = action == "restore";
     let _ = std::fs::remove_file(endpoints::log());
-    match endpoints::rename(restore) {
-        Ok(0) if !restore => 2,
+    if action == "speaker-setup" {
+        return finish(endpoints::rename_speaker(false), true);
+    }
+    let restore = action == "restore";
+    // Restoring puts every cable Hush renamed back: the microphone's and the speaker's.
+    if restore {
+        let _ = endpoints::rename_speaker(true);
+    }
+    finish(endpoints::rename(restore), !restore)
+}
+
+fn finish(result: eyre::Result<usize>, need_some: bool) -> i32 {
+    match result {
+        Ok(0) if need_some => 2,
         Ok(_) => 0,
         Err(error) => {
             let log = endpoints::log();
@@ -152,6 +213,81 @@ mod endpoints {
     /// "Hush AI Microphone".
     fn record() -> std::path::PathBuf {
         folder().join("vb-cable-endpoints.txt")
+    }
+
+    /// Endpoint IDs of the second cable renamed to Hush AI Speaker, with their original names.
+    fn speaker_record() -> std::path::PathBuf {
+        folder().join("vb-speaker-endpoints.txt")
+    }
+
+    /// Name a second cable Hush AI Speaker (or restore its names); returns how many endpoints
+    /// changed. Only the first cable found is used.
+    pub fn rename_speaker(restore: bool) -> eyre::Result<usize> {
+        let mut count = 0;
+        // SAFETY: standard COM use on this thread; every interface is released when dropped.
+        unsafe {
+            CoInitializeEx(None, COINIT_MULTITHREADED).ok()?;
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+            if restore {
+                let Ok(lines) = std::fs::read_to_string(speaker_record()) else {
+                    return Ok(0);
+                };
+                // "<endpoint>\t<interface>\t<id>"
+                for line in lines.lines() {
+                    let mut parts = line.split('\t');
+                    let (Some(endpoint), Some(interface), Some(id)) =
+                        (parts.next(), parts.next(), parts.next())
+                    else {
+                        continue;
+                    };
+                    let Ok(device) = enumerator.GetDevice(&HSTRING::from(id)) else {
+                        continue;
+                    };
+                    set_names(&device, endpoint, interface)?;
+                    count += 1;
+                }
+                let _ = std::fs::remove_file(speaker_record());
+                return Ok(count);
+            }
+            let devices = enumerator.EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE)?;
+            let mut found: Vec<(String, IMMDevice)> = Vec::new();
+            for index in 0..devices.GetCount()? {
+                let device = devices.Item(index)?;
+                let name = device
+                    .OpenPropertyStore(STGM_READ)?
+                    .GetValue(&FULL_NAME)?
+                    .to_string();
+                found.push((name, device));
+            }
+            // The best cable that is present; both of its ends are renamed.
+            let Some(&(render, capture, interface)) = SPEAKER_CABLES
+                .iter()
+                .find(|(render, _, _)| found.iter().any(|(n, _)| named(n, render)))
+            else {
+                return Ok(0);
+            };
+            let mut record = String::new();
+            for (name, device) in &found {
+                let (original, new) = if named(name, render) {
+                    (render, SPEAKER_NAME)
+                } else if named(name, capture) {
+                    (capture, MONITOR_NAME)
+                } else {
+                    continue;
+                };
+                let raw = device.GetId()?;
+                let id = raw.to_string()?;
+                windows::Win32::System::Com::CoTaskMemFree(Some(raw.0 as _));
+                record.push_str(&format!("{original}\t{interface}\t{id}\n"));
+                set_names(device, new, INTERFACE_NAME)?;
+                count += 1;
+            }
+            std::fs::create_dir_all(folder())?;
+            let earlier = std::fs::read_to_string(speaker_record()).unwrap_or_default();
+            std::fs::write(speaker_record(), earlier + &record)?;
+        }
+        Ok(count)
     }
 
     /// The elevated helper's last error, for the app to show.

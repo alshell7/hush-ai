@@ -59,6 +59,8 @@ own list.
   Turn noise cancellation or Live Translate on or off, swap languages, change the
   microphone, or join your next meeting. Double-click opens
   the window (Windows). Right-click for the menu.
+- **Noise cancellation off** does not silence you: Hush AI Microphone passes your voice through
+  as it is, so apps keep hearing you and you never have to switch microphones.
 - **Closing the window** keeps Hush running in the tray. Use **Quit** to stop it. When Hush
   is not running, Hush AI Microphone is silent.
 - **Open at login** (Settings) starts Hush in the tray when you log in.
@@ -186,9 +188,18 @@ Press **Their voice** on the Talk tab (or in Settings):
 How Hush hears them:
 
 - **macOS and Linux:** choose **Hush AI Speaker** as the speaker in your meeting app.
-- **Windows:** with no setup, Hush listens along to your speakers and translates them (it
-  cannot clean or replace their voice this way). To clean it too, install VB-CABLE A+B from
-  VB-Audio and choose **CABLE-A Input** as the meeting's speaker; Hush finds it on its own.
+- **Windows:** VB-CABLE is already Hush AI Microphone, so Hush AI Speaker needs one more free
+  virtual cable. Talk › **Their voice** walks you through it:
+  1. **Open VB-Audio** and download **VB-Audio Hi-Fi Cable** (free for personal use).
+  2. Extract it, run its setup as administrator, and restart Windows.
+  3. Press **Name it Hush AI Speaker** (Windows asks for permission once). Hush renames the
+     cable's playback side to **Hush AI Speaker** and its recording side to **Hush AI Speaker
+     Monitor**.
+
+  Then choose **Hush AI Speaker** as the speaker in your meeting app. VB-CABLE A or B works too.
+  Until it is set up, Hush listens along to your speakers and translates them (it cannot clean
+  or replace their voice that way). Settings › Hush AI Microphone › **Restore VB-CABLE names**
+  puts the cable's own names back too.
 
 When Hush quits, apps that played to Hush AI Speaker fall back to your speakers (Linux) or
 stay silent until Hush runs again (macOS, Windows cable): choose your speakers again in the
@@ -247,7 +258,7 @@ windows and the notch out of screenshots, screen sharing and recordings (Windows
 | Meetings: one calendar in the list shows an error | Its secret address was reset. Remove it and add the new address; the other calendars keep working. |
 | Ctrl + Alt + T does nothing | Another app uses the same shortcut. Use the switch in the notch or widget instead. |
 | I hear nothing from the meeting | The meeting app plays to Hush AI Speaker: keep Hush running, or choose your speakers in the meeting app. Check **Play their voice on** under Their voice. |
-| Windows: Their voice says "Listening along" | No second cable is installed: translation works, cleaning their voice needs VB-CABLE A+B. |
+| Windows: Their voice says "Listening along" | Hush AI Speaker is not set up yet: translation works; to clean their voice, follow the steps under Talk › Their voice. |
 
 ## Uninstall
 

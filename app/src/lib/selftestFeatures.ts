@@ -79,7 +79,10 @@ async function selftestTranslate(log: (line: string) => Promise<unknown>) {
     await log("translate: still on with noise cancellation off (pass-through session)");
     await features.translateSet(false);
     await wait(1500);
-    await log(`translate off: session ${(await api.snapshot()).engine.status}`);
+    const session = (await api.snapshot()).engine;
+    // Translation off, noise cancellation off: Hush AI Microphone still carries the voice.
+    if (session.status !== "on" || session.noise !== false) throw new Error(`pass-through after translate: ${session.status}`);
+    await log("translate off: Hush AI Microphone still passes the voice through");
     await api.setEnabled(true);
     // Their voice: Hush AI Speaker, or listening along to the speakers.
     const listen = await features.listenInfo();

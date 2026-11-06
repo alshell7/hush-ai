@@ -147,12 +147,14 @@ struct Plan {
 fn virtual_speaker_names(names: &[String]) -> Option<String> {
     let rank = |name: &str| {
         let lower = name.to_lowercase();
-        if lower.contains("hush ai speaker") {
+        if lower.contains("hush ai speaker") && !lower.contains("monitor") {
             Some(0)
-        } else if lower.contains("cable-a input") {
+        } else if lower.contains("hi-fi cable input") {
             Some(1)
-        } else if lower.contains("cable-b input") {
+        } else if lower.contains("cable-a input") {
             Some(2)
+        } else if lower.contains("cable-b input") {
+            Some(3)
         } else {
             None
         }

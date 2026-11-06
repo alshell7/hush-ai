@@ -38,7 +38,7 @@ pub struct EngineState {
     pub message: Option<String>,
     /// The model of the current or last session.
     pub engine: Model,
-    /// The session removes noise. `false` while it only passes the voice to Live Translate.
+    /// The session removes noise. `false` while it passes the voice through as it is.
     pub noise: bool,
     pub threads: usize,
     pub input_rate: u32,
@@ -157,7 +157,7 @@ impl Engine {
 
     fn publish(&self, inner: &Inner) {
         let _ = self.app.emit("engine", &inner.state);
-        // A pass-through session for Live Translate is not noise cancellation.
+        // A pass-through session (noise cancellation off) shows as off.
         let shown = if inner.state.noise || inner.state.status == Status::Error {
             inner.state.status
         } else {
@@ -200,16 +200,23 @@ impl Engine {
         let settings = app.state::<crate::AppState>().settings();
         let data_dir = app.path().app_data_dir().unwrap_or_default();
         inner.state.engine = settings.engine;
-        let Some(model) = crate::model::find(&data_dir, settings.engine) else {
-            inner.state.status = Status::Error;
-            inner.state.message = Some("Download the voice model to turn on Hush AI.".into());
-            self.publish(inner);
-            return;
+        // With noise cancellation off the voice passes through: no model needed.
+        let model = if settings.enabled {
+            let Some(model) = crate::model::find(&data_dir, settings.engine) else {
+                inner.state.status = Status::Error;
+                inner.state.message = Some("Download the voice model to turn on Hush AI.".into());
+                self.publish(inner);
+                return;
+            };
+            model
+        } else {
+            std::path::PathBuf::new()
         };
         let (input, notice) = input_selection(&settings);
         let output = output_selection(&settings);
         let mut audio = audio_settings(&settings, model, true);
-        // With noise cancellation off, a session runs only for Live Translate: pass-through.
+        // Noise cancellation off still feeds Hush AI Microphone: the voice passes through, so
+        // apps keep hearing you without changing their microphone.
         audio.bypass = !settings.enabled;
         inner.state.noise = settings.enabled;
         // Live Translate can switch on at any time during this session.
@@ -341,7 +348,7 @@ impl Engine {
         self.retry_later();
     }
 
-    /// After a device error, try again while noise cancellation is still wanted:
+    /// After a device error, try again while Hush is set up (the microphone always works):
     /// after 2, 4 and 8 seconds, then every 15 seconds.
     fn retry_later(&self) {
         let delay = {
@@ -360,10 +367,7 @@ impl Engine {
             let Some(engine) = app.try_state::<Arc<Engine>>() else {
                 return;
             };
-            let wanted = app.state::<crate::AppState>().settings().enabled
-                || app
-                    .state::<Arc<crate::translate::Translator>>()
-                    .is_on(crate::conversation::Side::Me);
+            let wanted = app.state::<crate::AppState>().settings().onboarded;
             let state = engine.state();
             if wanted && state.status == Status::Error && !engine.is_running() {
                 engine.start();

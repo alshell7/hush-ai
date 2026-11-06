@@ -97,10 +97,11 @@ the 24 kHz answer and resamples it to the device rate. It keeps a session-resump
 so it continues on a new connection when Google rotates the old one (about every 10
 minutes), and reconnects with a new setup when the target language changes.
 
-Live Translate does not need noise cancellation. When it is on and noise cancellation is
-off, the engine runs a pass-through session (`bypass`): the worker copies the microphone to
-the output unchanged, so the tap and Hush AI Microphone work as usual, and the tray shows
-noise cancellation as off. The session stops when both are off.
+Noise cancellation off never silences Hush AI Microphone. The engine then runs a
+pass-through session (`bypass`) with a model-free enhancer: the worker copies the microphone
+to the output unchanged, so apps keep hearing the user (and Live Translate's tap works as
+usual), and the tray shows noise cancellation as off. Turning noise cancellation on or off
+restarts the session in the other mode; only quitting Hush stops it.
 
 The translator joins the captions of one phrase (until a 2.5-second pause) into a line with
 both languages and hands it to the conversations (see Conversations), unless the user turned

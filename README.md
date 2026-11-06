@@ -175,9 +175,10 @@ traffic and room noise (Light or Full) and plays them on your real speakers or h
 
 - **macOS:** Hush AI Speaker comes with Hush AI Microphone.
 - **Linux:** Hush creates it in PulseAudio or PipeWire.
-- **Windows:** the free VB-CABLE is already Hush AI Microphone, so Hush listens along to your
-  speakers for translation with no setup. To also clean their voice, install a second cable
-  (VB-CABLE A+B from VB-Audio) and choose **CABLE-A Input** as the meeting's speaker.
+- **Windows:** the free VB-CABLE is already Hush AI Microphone, so Hush AI Speaker needs one
+  more free cable: install VB-Audio's **Hi-Fi Cable** and press **Name it Hush AI Speaker**
+  (Talk › Their voice). Until then, Hush translates their voice by listening along to your
+  speakers.
 
 ### Meetings: Google Calendar without signing in
 

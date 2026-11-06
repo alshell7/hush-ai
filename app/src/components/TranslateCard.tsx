@@ -2,9 +2,10 @@
 // conversation switch (which asks first), which directions it turns on, "I speak" and "They
 // speak", live captions for both sides, and what Hush does with their voice.
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { features, languageName, setFeatures, talking, TRANSLATE_SHORTCUT, useFeatures, type CleanLevel, type HearMode, type LaneInfo, type Side, type TalkMode } from "../lib/features";
+import { openUrl } from "../lib/ipc";
 import { saveSettings, useApp } from "../lib/store";
 import { DevicePicker, Segmented, Spinner, Toggle } from "./Controls";
 import { GeminiKeyConnect } from "./GeminiKeyConnect";
@@ -217,12 +218,92 @@ const HEAR: { value: HearMode; label: string; hint: string }[] = [
   { value: "translation", label: "Translation", hint: "Hear only the translated voice." },
 ];
 
+/** VB-Audio's page with Hi-Fi Cable, free for end users. Hush may not bundle it. */
+const HIFI_CABLE_PAGE = "https://vb-audio.com/Cable/";
+
+/**
+ * Windows has no Hush AI Speaker of its own yet (VB-CABLE is already Hush AI Microphone), so
+ * Hush names a second cable: download, install, then one click (one administrator prompt).
+ */
+function WindowsSpeakerSetup() {
+  const [status, setStatus] = useState<"ready" | "installed" | "missing" | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Notice the cable as soon as it is installed.
+  useEffect(() => {
+    let alive = true;
+    const check = () => features.speakerStatus().then((s) => alive && setStatus(s)).catch(() => undefined);
+    check();
+    const timer = window.setInterval(check, 3000);
+    window.addEventListener("focus", check);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
+  }, []);
+  const name = async () => {
+    setBusy(true);
+    try {
+      setStatus(await features.speakerSetup());
+      setFeatures({ listen: await features.listenInfo() });
+      toast("Hush AI Speaker is ready. Choose it as the speaker in your meeting app.");
+    } catch (e) {
+      toast(String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const step = (n: number, done: boolean, title: string, body: string, action?: ReactNode) => (
+    <li className="flex gap-2.5">
+      <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10.5px] font-bold ${done ? "bg-[var(--h-green)] text-white" : "bg-[rgba(30,27,24,.08)] text-ink-2"}`}>{done ? "✓" : n}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] font-[620]">{title}</div>
+        <div className="text-[11.5px] leading-snug text-muted">{body}</div>
+        {action && <div className="mt-1.5">{action}</div>}
+      </div>
+    </li>
+  );
+  const installed = status === "installed" || status === "ready";
+  return (
+    <div className="rounded-2xl bg-white/70 p-3.5" style={{ boxShadow: "inset 0 0 0 1px var(--h-line)" }}>
+      <div className="mb-1 text-[13px] font-[650]">Set up Hush AI Speaker</div>
+      <p className="mb-3 text-[11.5px] leading-snug text-muted">Windows needs one more free virtual cable for it (VB-CABLE is already your Hush AI Microphone). Until then, Hush translates their voice by listening along to your speakers.</p>
+      <ol className="space-y-3">
+        {step(
+          1,
+          installed,
+          "Download Hi-Fi Cable from VB-Audio",
+          "Free for personal use. On VB-Audio's page, find \u201cVB-Audio Hi-Fi Cable\u201d and download it.",
+          !installed && (
+            <button className="btn btn-soft btn-sm h-8" onClick={() => openUrl(HIFI_CABLE_PAGE)}>
+              Open VB-Audio
+            </button>
+          ),
+        )}
+        {step(2, installed, "Install it, then restart Windows", "Extract the zip and run its setup as administrator. Hush notices it on its own.")}
+        {step(
+          3,
+          status === "ready",
+          "Name it Hush AI Speaker",
+          "One click; Windows asks for permission once.",
+          status === "installed" && (
+            <button className="btn btn-primary btn-sm h-8" disabled={busy} onClick={name}>
+              {busy ? <Spinner size={13} /> : null} Name it Hush AI Speaker
+            </button>
+          ),
+        )}
+      </ol>
+    </div>
+  );
+}
+
 /** Hush AI Speaker: where their voice comes from, cleaning, and what you hear. */
 export function TheirVoiceOptions() {
   const settings = useApp((s) => s.settings);
   const devices = useApp((s) => s.devices);
   const listen = useFeatures((s) => s.listen);
   if (!settings) return null;
+  const platform = useApp((s) => s.platform);
   const speaker = listen?.mode === "speaker";
   const outputs = (devices?.outputs ?? [{ name: null, label: "System default" }]).filter((d) => !/hush ai|cable|vb-audio/i.test(d.name ?? ""));
   return (
@@ -238,7 +319,7 @@ export function TheirVoiceOptions() {
           ) : listen?.mode === "loopback" ? (
             <>
               <div className="font-[620]">Listening along to your speakers</div>
-              <div className="text-muted">Hush translates what your speakers play, with no setup. To also clean their voice, install a second virtual cable (VB-CABLE A+B) and choose it as the meeting's speaker.</div>
+              <div className="text-muted">Hush translates what your speakers play, with no setup. To also clean their voice or hear a voice-over, set up Hush AI Speaker below.</div>
             </>
           ) : (
             <>
@@ -249,6 +330,7 @@ export function TheirVoiceOptions() {
           {listen?.message && speaker && <div className="mt-1 text-amber">{listen.message}</div>}
         </div>
       </div>
+      {!speaker && platform === "windows" && <WindowsSpeakerSetup />}
       {speaker && (
         <>
           <div>

@@ -1,7 +1,7 @@
 // One small app store shared by every component of a window. Updates come from backend
 // events; components read slices with `useApp`.
 import { useSyncExternalStore } from "react";
-import { api, on, type Devices, type EngineState, type Models, type Platform, type Settings, type VmicInfo } from "./ipc";
+import { api, isTauri, on, type Devices, type EngineState, type Models, type Platform, type Settings, type VmicInfo } from "./ipc";
 
 export interface AppStore {
   ready: boolean;
@@ -70,6 +70,10 @@ export async function startStore() {
     version: snapshot.version,
   });
   document.documentElement.dataset.platform = snapshot.platform;
+  // Previews: `?update=1` shows a downloaded update and its notes.
+  if (!isTauri && new URLSearchParams(location.search).get("update") === "1") {
+    setStore({ update: { version: "1.3.0", state: "ready", notes: "- **Smoother notch.** It morphs without a glitch.\n- **Hush AI Speaker on Windows.** Hush names a free cable for you.\n\n<!-- downloads -->\n**Download** below." } });
+  }
   refreshDevices();
   refreshVmic();
 }

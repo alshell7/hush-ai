@@ -26,6 +26,8 @@ export interface Settings {
 export interface EngineState {
   status: EngineStatus;
   message: string | null;
+  /** `false` while noise cancellation is off and the voice passes through as it is. */
+  noise?: boolean;
   engine: Engine;
   threads: number;
   inputRate: number;
@@ -200,7 +202,7 @@ function setEngine(patch: Partial<EngineState>) {
 export const simSettings = () => sim.settings;
 
 export const simulated: Record<string, (args: Record<string, unknown>) => unknown> = {
-  snapshot: () => ({ settings: sim.settings, models: sim.models, engine: sim.engine, platform: guessPlatform(), version: "1.2.0" }),
+  snapshot: () => ({ settings: sim.settings, models: sim.models, engine: sim.engine, platform: guessPlatform(), version: "1.2.1" }),
   app_ready: () => undefined,
   devices: () => ({
     inputs: [
@@ -227,10 +229,9 @@ export const simulated: Record<string, (args: Record<string, unknown>) => unknow
   set_enabled_command: ({ on }) => {
     sim.settings.enabled = on as boolean;
     emit("settings", sim.settings);
-    if (on) {
-      setEngine({ status: "starting" });
-      setTimeout(() => setEngine({ status: "on" }), 700);
-    } else setEngine({ status: "off" });
+    // As the backend does: off restarts as a pass-through, so the microphone keeps working.
+    setEngine({ status: "starting", noise: on as boolean });
+    setTimeout(() => setEngine({ status: "on" }), on ? 700 : 300);
     return undefined;
   },
   watch_meters: ({ on }) => simulateMeters(on as boolean),

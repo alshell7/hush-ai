@@ -247,6 +247,9 @@ export const features = {
   conversationsClear: () => invoke<void>("conversations_clear"),
   conversationsExport: (ids: number[], format: "md" | "txt" | "json", path: string) => invoke<void>("conversations_export", { ids, format, path }),
   listenInfo: () => invoke<ListenInfo>("listen_info"),
+  /** Windows: Hush AI Speaker "ready", a second cable "installed" (to be named), or "missing". */
+  speakerStatus: () => invoke<"ready" | "installed" | "missing">("speaker_status"),
+  speakerSetup: () => invoke<"ready" | "installed" | "missing">("speaker_setup"),
   listenLevel: () => invoke<number>("listen_level"),
   notchRegion: (x: number, y: number, width: number, height: number) => invoke<void>("notch_region", { x, y, width, height }),
   notchGeometry: () => invoke<NotchGeometry>("notch_geometry"),
@@ -683,6 +686,15 @@ if (!isTauri) {
     },
     conversations_export: () => new Promise((r) => setTimeout(r, 300)),
     listen_info: () => listen,
+    speaker_status: () => (listen.mode === "speaker" ? "ready" : params.get("cable") === "1" ? "installed" : "missing"),
+    speaker_setup: () =>
+      new Promise((resolve) =>
+        setTimeout(() => {
+          listen = { ...listen, mode: "speaker", device: "Hush AI Speaker" };
+          emit("listen", listen);
+          resolve("ready");
+        }, 900),
+      ),
     listen_level: () => (listen.active ? 0.15 + Math.abs(Math.sin(Date.now() / 260)) * 0.5 * Math.random() : 0),
     notch_region: () => undefined,
     notch_geometry: () => ({ hasNotch: params.get("macnotch") === "1", notchWidth: 186, notchHeight: 32, menuBar: params.get("platform") === "macos" ? 24 : 0 }),

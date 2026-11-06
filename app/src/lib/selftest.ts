@@ -76,7 +76,8 @@ async function checkEngine(kind: Engine, state: State) {
     await log(`model download: ${info[kind].installed} ${last} bytes in ${((Date.now() - t) / 1000).toFixed(1)} s`);
   }
   await api.setEnabled(false);
-  await until("engine off", () => (state.engine().status === "off" ? true : undefined), 5000);
+  // Off still carries the voice: a pass-through session, so apps keep hearing you.
+  await until("pass-through", () => (state.engine().status === "on" && state.engine().noise === false ? true : undefined), 10000);
   await api.updateSettings({ engine: kind });
   await api.setEnabled(true);
   const failed = () => {
@@ -103,8 +104,9 @@ async function checkEngine(kind: Engine, state: State) {
     await until("restart light", () => (state.engine().status === "on" && state.engine().modelRate === 16000 ? true : undefined), 20000);
   }
   await api.setEnabled(false);
-  await until("engine off", () => (state.engine().status === "off" ? true : undefined), 5000);
-  await log("engine off");
+  // Off still carries the voice: a pass-through session, so apps keep hearing you.
+  await until("pass-through", () => (state.engine().status === "on" && state.engine().noise === false ? true : undefined), 10000);
+  await log("noise cancellation off: Hush AI Microphone passes the voice through");
   state.clearTest();
   await api.testRecord(2);
   await until("test ready", () => (state.test()?.phase === "ready" || state.test()?.phase === "error" ? true : undefined), 20000);

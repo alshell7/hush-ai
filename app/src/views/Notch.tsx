@@ -22,7 +22,10 @@ import { useNow } from "../lib/time";
 
 type Mode = "idle" | "live" | "open";
 
-const SPRING = { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } as const;
+// One spring for width, height and corners, so the island moves as one shape.
+const SPRING = { type: "spring", stiffness: 320, damping: 32, mass: 0.9 } as const;
+/** The rim around the island, in pixels. */
+const RIM = 1.5;
 
 export function Notch() {
   const settings = useApp((s) => s.settings);
@@ -38,6 +41,19 @@ export function Notch() {
   const [pinned, setPinned] = useState(false);
   const leave = useRef(0);
   const island = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  // The island's height follows its content, animated as height (never as a scale, which
+  // would squash the text while it grows).
+  const [height, setHeight] = useState<number | "auto">("auto");
+  useLayoutEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    const measure = () => setHeight(Math.ceil(el.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [settings === null]);
 
   useEffect(() => {
     document.documentElement.classList.add("notch");
@@ -66,33 +82,22 @@ export function Notch() {
   const live = (noiseOn && callActive) || talking(translate) || !!soon;
   const mode: Mode = hovered || pinned || toggle.asking ? "open" : live ? "live" : "idle";
 
-  // Report the island's rectangle as it morphs, so only it takes the mouse.
-  useLayoutEffect(() => {
-    const el = island.current;
-    if (!el) return;
-    let frame = 0;
-    const report = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const r = el.getBoundingClientRect();
-        features.notchRegion(r.x, r.y, r.width, r.height).catch(() => undefined);
-      });
-    };
-    report();
-    const observer = new ResizeObserver(report);
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  if (!settings || !engine) return null;
-
   const notch = geometry.hasNotch;
   const topHeight = notch ? geometry.notchHeight : 34;
   const width = mode === "open" ? 572 : mode === "live" ? (notch ? geometry.notchWidth + 230 : 330) : notch ? geometry.notchWidth : 132;
   const radius = mode === "open" ? 26 : mode === "live" ? 18 : notch ? 12 : 8;
+  const rim = mode === "idle" ? 0 : RIM;
+
+  // Tell the backend where the island ends up (once per change, not every frame), so only it
+  // takes the mouse. Growing, it is the new size at once; shrinking, after the morph.
+  useEffect(() => {
+    if (typeof height !== "number") return;
+    const report = () => features.notchRegion((window.innerWidth - width) / 2, 0, width, height + rim).catch(() => undefined);
+    const timer = window.setTimeout(report, mode === "idle" ? 380 : 0);
+    return () => clearTimeout(timer);
+  }, [width, height, rim, mode]);
+
+  if (!settings || !engine) return null;
 
   return (
     <div className="flex h-full w-full justify-center" onMouseEnter={() => !isTauri && setHovered(true)} onMouseLeave={() => !isTauri && setHovered(false)}>
@@ -101,12 +106,14 @@ export function Notch() {
         className="notch-rim relative h-fit"
         data-live={mode !== "idle" && live}
         initial={false}
-        animate={{ width, borderBottomLeftRadius: radius + 1.5, borderBottomRightRadius: radius + 1.5 }}
+        animate={{ width, paddingLeft: rim, paddingRight: rim, paddingBottom: rim, borderBottomLeftRadius: radius + rim, borderBottomRightRadius: radius + rim, boxShadow: mode === "open" ? "0 18px 50px rgba(0,0,0,.35)" : "0 0 0 rgba(0,0,0,0)" }}
         transition={SPRING}
-        style={{ padding: mode === "idle" ? 0 : "0 1.5px 1.5px", boxShadow: mode === "open" ? "0 18px 50px rgba(0,0,0,.35)" : undefined }}
       >
-        <motion.div layout transition={SPRING} className="notch-island overflow-hidden" style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}>
-          <AnimatePresence initial={false} mode="popLayout">
+        <motion.div initial={false} animate={{ height, borderBottomLeftRadius: radius, borderBottomRightRadius: radius }} transition={SPRING} className="notch-island relative flex items-start justify-center overflow-hidden">
+          {/* Each state keeps its own final width, so nothing re-wraps while the island morphs
+              around it; the island is only a mask. */}
+          <div ref={content} className="shrink-0" style={{ width: width - 2 * rim }}>
+            <AnimatePresence initial={false} mode="popLayout">
             {mode === "idle" && <motion.div key="idle" exit={{ opacity: 0 }} style={{ height: notch ? geometry.notchHeight : 9 }} />}
             {mode === "live" && (
               <Fade key="live">
@@ -118,16 +125,18 @@ export function Notch() {
                 <Open top={notch ? geometry.notchHeight : 0} toggle={toggle} noiseOn={noiseOn} onClose={() => setPinned(false)} />
               </Fade>
             )}
-          </AnimatePresence>
+            </AnimatePresence>
+          </div>
         </motion.div>
       </motion.div>
     </div>
   );
 }
 
+/** Contents cross-fade with a small lift: opacity and transform only, cheap to draw. */
 function Fade({ children }: { children: ReactNode }) {
   return (
-    <motion.div initial={{ opacity: 0, filter: "blur(4px)" }} animate={{ opacity: 1, filter: "blur(0px)" }} exit={{ opacity: 0, filter: "blur(4px)" }} transition={{ duration: 0.18 }}>
+    <motion.div initial={{ opacity: 0, y: -4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: 0.22, delay: 0.06, ease: [0.2, 0.8, 0.2, 1] } }} exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }} style={{ transformOrigin: "50% 0%" }}>
       {children}
     </motion.div>
   );
@@ -235,7 +244,7 @@ function Open({ top, toggle, noiseOn, onClose }: { top: number; toggle: ReturnTy
       <div className="flex items-center gap-2.5">
         <Mochi size={24} mood="happy" breathe={false} />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-[650]">{noiseOn ? "Hush is on" : "Hush is off"}</div>
+          <div className="text-[13px] font-[650]">{settings.enabled ? "Noise cancellation is on" : "Noise cancellation is off"}</div>
           <div className="truncate text-[11px] text-muted">{engine.status === "error" ? engine.message : talking(translate) ? `Live Translate · ${mode.label.toLowerCase()}` : `${TRANSLATE_SHORTCUT} translates in any app`}</div>
         </div>
         <button
@@ -252,7 +261,7 @@ function Open({ top, toggle, noiseOn, onClose }: { top: number; toggle: ReturnTy
       </div>
 
       <div className="flex gap-2">
-        <Chip active={noiseOn} onClick={() => api.setEnabled(!settings.enabled)} busy={settings.enabled && engine.status === "starting"} icon={<PowerIcon size={17} />} label="Noise cancellation" sub={noiseOn ? "Your mic is clean" : "Off"} />
+        <Chip active={settings.enabled} onClick={() => api.setEnabled(!settings.enabled)} busy={engine.status === "starting"} icon={<PowerIcon size={17} />} label="Noise cancellation" sub={settings.enabled ? (noiseOn ? "Your mic is clean" : "Starting…") : "Off · mic still works"} />
         <Chip
           active={toggle.on}
           onClick={() => toggle.request(!toggle.on)}
@@ -286,7 +295,7 @@ function Open({ top, toggle, noiseOn, onClose }: { top: number; toggle: ReturnTy
 
       <div className="flex items-center gap-3 text-[10.5px] text-muted">
         <span className="flex items-center gap-1.5">
-          <MicIcon size={12} /> {noiseOn ? <Bars count={7} height={10} /> : "off"}
+          <MicIcon size={12} /> {engine.status === "on" ? <Bars count={7} height={10} /> : engine.status === "starting" ? "starting" : "off"}
         </span>
         {listen?.mode !== "none" && listen && (
           <span className="flex items-center gap-1.5">

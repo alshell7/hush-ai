@@ -161,7 +161,39 @@ fn output_stream<T: SizedSample + FromSample<f32>>(
 
 /// Load the model and set up its workers. `automatic` with zero threads picks the count
 /// (RE-USE only). Returns the model and its worker count.
+/// Noise cancellation off: the voice as it is, in 10 ms steps, with no model to load.
+struct Passthrough;
+
+impl Enhancer for Passthrough {
+    fn sample_rate(&self) -> u32 {
+        48_000
+    }
+    fn frame(&self) -> usize {
+        480
+    }
+    fn latency(&self) -> usize {
+        0
+    }
+    fn reset(&mut self) {}
+    fn prepare(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn process_into(&mut self, input: &[f32], out: &mut Vec<f32>) -> Result<()> {
+        out.extend_from_slice(input);
+        Ok(())
+    }
+    fn flush(&mut self) -> Result<Vec<f32>> {
+        Ok(Vec::new())
+    }
+    fn worker_scheduling(&self) -> hush_core::WorkerScheduling {
+        hush_core::WorkerScheduling::OsDefault
+    }
+}
+
 pub fn load_model(settings: &Settings, automatic: bool) -> Result<(Box<dyn Enhancer>, usize)> {
+    if settings.bypass {
+        return Ok((Box::new(Passthrough), 1));
+    }
     if settings.kind == ModelKind::DeepFilter {
         let mut model = DeepFilter::load(&settings.model)?;
         model.set_worker_scheduling(settings.scheduling);
